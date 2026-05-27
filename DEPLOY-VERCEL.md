@@ -16,7 +16,7 @@ Cuando lo tengas, dime el **nombre exacto** del proyecto y yo completo el enlace
 
 | Archivo | Qué hace |
 |---------|----------|
-| `vercel.json` | Next.js, build, env demo (`NEXT_PUBLIC_HBI_MOCK_DATA=true`) |
+| `vercel.json` | Next.js + build (sin variables de entorno) |
 | `lib/auth/auth.config.ts` | Usa `VERCEL_URL` automáticamente para login en producción |
 | Sin PostgreSQL / Azure | Todo mock en memoria + localStorage |
 
@@ -47,18 +47,12 @@ vercel --prod
 
 ---
 
-## Variables de entorno (opcional)
+## Variables de entorno
 
-Para el demo **no necesitas configurar ninguna variable** en Vercel.
-
-Opcional en dashboard → Settings → Environment Variables:
-
-| Variable | Valor | Notas |
-|----------|-------|-------|
-| `NEXT_PUBLIC_HBI_MOCK_DATA` | `true` | Ya en `vercel.json` |
-| `NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED` | `false` | Ya en `vercel.json` |
-
-No hace falta PostgreSQL, Azure ni secretos para la versión demo.
+**No configures ninguna** en Vercel. El demo funciona out-of-the-box:
+- auth demo y datos mock vienen quemados en el código,
+- login Microsoft desactivado por defecto,
+- sin PostgreSQL ni Azure.
 
 ---
 

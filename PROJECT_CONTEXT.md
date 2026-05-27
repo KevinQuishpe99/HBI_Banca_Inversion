@@ -22,14 +22,13 @@ Adaptación de **Gestion_Archivos_comware** al documento *FLUJO DE PROCESOS (WOR
 | Reglas estrictas: estado, avance, próximos pasos | `validarAvanceFase()` + `EstadoIntegralBanner` + bloqueo avance si falta requisito |
 
 ## Modo actual: demo funcional (sin BD)
-Por defecto `NEXT_PUBLIC_HBI_MOCK_DATA=true` (ver `.env.example` y `DEPLOY-VERCEL.md`).
+Sin variables de entorno: el demo viene activo por defecto en código (datos quemados, sin PostgreSQL).
 
 ### Autenticación demo
 - `lib/auth/demo-users.ts` — 6 usuarios de prueba (Anexos 1–3, director, deudor y acreedor)
 - Login: sección **Usuarios de prueba** en `/login` (un clic) o credenciales `*@hbi-demo.com` / `Demo2026!`
-- Sin PostgreSQL: `authorize` en `auth.config.ts` solo valida usuarios demo cuando mock está activo
-- `NEXTAUTH_SECRET` ya no es obligatorio en demo (fallback interno controlado para despliegue rápido en Vercel)
-- `NEXTAUTH_URL` también tiene fallback interno (`http://localhost:3000`) para evitar warning en demo sin `.env`
+- Sin PostgreSQL: `authorize` en `auth.config.ts` solo valida usuarios demo
+- `NEXTAUTH_SECRET` y `NEXTAUTH_URL` tienen fallback interno (incl. `VERCEL_URL` en producción)
 
 ### Datos HBI
 - `lib/hbi/mock-store.ts` + persistencia `lib/hbi/mock-persistence.ts` (localStorage / caché del navegador)
@@ -40,7 +39,7 @@ Por defecto `NEXT_PUBLIC_HBI_MOCK_DATA=true` (ver `.env.example` y `DEPLOY-VERCE
 - Seguridad de rutas movida a `proxy.ts` (Next.js 16) en lugar de `middleware.ts`
 - Se fuerza tema claro en demo para evitar casos de bajo contraste (texto claro sobre fondos claros) en componentes heredados
 
-Para producción con BD: `NEXT_PUBLIC_HBI_MOCK_DATA=false` + migraciones + usuarios reales en `usuarios`.
+Para producción con BD real: conectar PostgreSQL/Azure y adaptar servicios (fuera del alcance del demo actual).
 
 ## Stack
 - Next.js 16 + React 19 + TypeScript + PostgreSQL (opcional) + Azure Blob + NextAuth + React Query + Zod

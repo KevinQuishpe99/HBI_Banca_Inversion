@@ -2,7 +2,7 @@ import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { usaDatosQuemadosHbi } from '@/lib/hbi/mock-config';
 
 const ERROR_MODO_DEMO =
-  'Modo demo HBI: PostgreSQL deshabilitado. Use datos quemados (NEXT_PUBLIC_HBI_MOCK_DATA=true).';
+  'Modo demo HBI: PostgreSQL deshabilitado. La app usa datos quemados en código.';
 
 function shouldUseSsl(): boolean {
   const raw = (process.env.DB_SSL ?? '').trim().toLowerCase();
