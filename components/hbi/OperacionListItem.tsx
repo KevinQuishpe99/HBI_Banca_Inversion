@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import type { OperacionCredito } from '@/types/hbi/operacion.types';
 import { TIPOS_SERVICIO_LABEL } from '@/types/hbi/operacion.types';
+import { formatearMonto } from '@/lib/hbi/hitos-plantilla';
+import type { EstructuraFinancieraHbi } from '@/types/hbi/cliente.types';
 import { AlertTriangle, ChevronRight } from 'lucide-react';
 
 const FASE_LABEL: Record<string, string> = {
@@ -17,6 +19,8 @@ type Props = {
 };
 
 export function OperacionListItem({ operacion }: Props) {
+  const estructura = operacion.metadata?.estructuraFinanciera as EstructuraFinancieraHbi | undefined;
+
   return (
     <Link
       href={`/operaciones/${operacion.id}`}
@@ -40,6 +44,14 @@ export function OperacionListItem({ operacion }: Props) {
         </h3>
         {operacion.deudor ? (
           <p className="mt-0.5 text-sm text-slate-600">Deudor: {operacion.deudor}</p>
+        ) : null}
+        {estructura ? (
+          <p className="mt-0.5 text-sm font-medium text-[var(--color-brand-primary)]">
+            {formatearMonto(estructura.montoTotal, estructura.moneda)}
+            {estructura.acreedores?.length
+              ? ` · ${estructura.acreedores.length} acreedor(es)`
+              : ''}
+          </p>
         ) : null}
         <div className="mt-2 flex flex-wrap gap-1">
           {operacion.serviciosActivos.map((s) => (

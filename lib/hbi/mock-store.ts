@@ -26,6 +26,7 @@ import type {
   TipoDocumentoContractual,
   TipoServicioHbi,
 } from '@/types/hbi/operacion.types';
+import type { HitoDesembolsoHbi } from '@/types/hbi/cliente.types';
 
 const ORDEN_FASES: FaseWorkflowHbi[] = [
   'FASE_1_CONTRATOS',
@@ -110,6 +111,7 @@ type Store = {
 };
 
 function crearExpediente(op: OperacionCredito, docs: DocumentoContractual[], correos: CorreoOperacion[]): ExpedienteMaestro {
+  const estructura = op.metadata?.estructuraFinanciera as Record<string, unknown> | undefined;
   return {
     id: uid('exp'),
     operacionId: op.id,
@@ -117,6 +119,11 @@ function crearExpediente(op: OperacionCredito, docs: DocumentoContractual[], cor
       codigoOperacion: op.codigoOperacion,
       nombreCredito: op.nombreCredito,
       deudor: op.deudor,
+      deudorId: op.metadata?.deudorId,
+      tipoCredito: op.metadata?.tipoCredito,
+      montoTotal: estructura?.montoTotal,
+      moneda: estructura?.moneda,
+      acreedores: estructura?.acreedores,
       totalDocumentos: docs.length,
       serviciosActivos: op.serviciosActivos,
     },
@@ -1140,10 +1147,21 @@ export const MockHbiStore = {
     nombreCredito: string;
     descripcion?: string;
     deudor?: string;
+    deudorId?: string;
+    tipoCredito?: string;
     serviciosActivos: TipoServicioHbi[];
+    estructuraFinanciera?: {
+      montoTotal: number;
+      moneda: 'USD' | 'COP';
+      acreedores: Array<{ id: string; razonSocial: string; porcentaje: number; montoComprometido: number }>;
+      montoComprometidoTotal: number;
+    };
+    hitosDesembolso?: HitoDesembolsoHbi[];
   }): OperacionCredito {
     touchStore();
     const n = store.operaciones.length + 1;
+    const hitos = input.hitosDesembolso ?? [];
+    const estructura = input.estructuraFinanciera;
     const op: OperacionCredito = {
       id: uid('mock-op'),
       codigoOperacion: `CRED-2026-${String(n).padStart(5, '0')}`,
@@ -1154,9 +1172,19 @@ export const MockHbiStore = {
       faseActual: 'FASE_1_CONTRATOS',
       serviciosActivos: input.serviciosActivos,
       creadoPor: 'mock-user-1',
-      metadata: {},
-      alertasActivas: false,
-      proximosPasos: 'Cargar y clasificar el paquete contractual completo.',
+      metadata: {
+        deudorId: input.deudorId,
+        tipoCredito: input.tipoCredito,
+        estructuraFinanciera: estructura,
+        hitosDesembolso: hitos,
+        anexosContratados: input.serviciosActivos,
+      },
+      alertasActivas: hitos.some(
+        (h) => h.estado === 'PENDIENTE_APROBACION' || h.estado === 'EN_REVISION'
+      ),
+      proximosPasos: estructura
+        ? `Cargar paquete contractual. Monto total ${estructura.moneda} ${estructura.montoTotal.toLocaleString('es-CO')}. Aprobar checklist del hito ${(hitos[0] as { id?: string })?.id ?? 'H1'}.`
+        : 'Cargar y clasificar el paquete contractual completo.',
       creadoEn: new Date().toISOString(),
       actualizadoEn: new Date().toISOString(),
     };
@@ -1166,7 +1194,9 @@ export const MockHbiStore = {
       id: uid('mock-h'),
       operacionId: op.id,
       tipoEvento: 'CREACION',
-      comentario: 'Operación creada (demo)',
+      comentario: estructura
+        ? `Operación creada — ${estructura.moneda} ${Number(estructura.montoTotal).toLocaleString('es-CO')} · ${(estructura.acreedores as unknown[])?.length ?? 0} acreedor(es)`
+        : 'Operación creada (demo)',
       faseNueva: 'FASE_1_CONTRATOS',
       usuarioNombre: actor(),
       creadoEn: op.creadoEn,

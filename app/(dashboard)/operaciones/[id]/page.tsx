@@ -13,6 +13,8 @@ import { EstadoIntegralBanner } from '@/components/hbi/EstadoIntegralBanner';
 import { OperacionWorkflowTabs } from '@/components/hbi/OperacionWorkflowTabs';
 import { FASES_WORKFLOW, type FaseWorkflowHbi } from '@/types/hbi/operacion.types';
 import { MockModeBanner } from '@/components/hbi/MockModeBanner';
+import { formatearMonto } from '@/lib/hbi/hitos-plantilla';
+import type { EstructuraFinancieraHbi } from '@/types/hbi/cliente.types';
 
 const ORDEN: FaseWorkflowHbi[] = [
   'FASE_1_CONTRATOS',
@@ -56,6 +58,8 @@ export default function OperacionDetallePage({
     );
   }
 
+  const estructura = data.metadata?.estructuraFinanciera as EstructuraFinancieraHbi | undefined;
+
   return (
     <div className="space-y-8">
       <MockModeBanner />
@@ -72,6 +76,14 @@ export default function OperacionDetallePage({
             <p className="font-mono text-sm text-slate-500">{data.codigoOperacion}</p>
             <h1 className="text-2xl font-bold text-slate-900">{data.nombreCredito}</h1>
             {data.deudor ? <p className="text-slate-600">Deudor: {data.deudor}</p> : null}
+            {estructura ? (
+              <p className="text-sm font-medium text-[var(--color-brand-primary)]">
+                Monto: {formatearMonto(estructura.montoTotal, estructura.moneda)}
+                {estructura.acreedores?.length
+                  ? ` · Sindicado: ${estructura.acreedores.map((a) => a.razonSocial).join(', ')}`
+                  : ''}
+              </p>
+            ) : null}
             <p className="mt-1 text-xs text-slate-500">
               Expediente maestro activo desde la creación · Agente: {data.agenteFinanciacion}
             </p>

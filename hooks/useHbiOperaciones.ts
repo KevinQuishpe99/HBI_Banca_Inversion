@@ -18,6 +18,7 @@ import type {
   TipoDocumentoContractual,
   TipoServicioHbi,
 } from '@/types/hbi/operacion.types';
+import type { HitoDesembolsoHbi } from '@/types/hbi/cliente.types';
 
 const MOCK = esModoDemo();
 
@@ -157,7 +158,21 @@ export function useCrearOperacionHbi() {
       nombreCredito: string;
       descripcion?: string;
       deudor?: string;
+      deudorId?: string;
+      tipoCredito?: string;
       serviciosActivos: string[];
+      estructuraFinanciera?: {
+        montoTotal: number;
+        moneda: 'USD' | 'COP';
+        acreedores: Array<{
+          id: string;
+          razonSocial: string;
+          porcentaje: number;
+          montoComprometido: number;
+        }>;
+        montoComprometidoTotal: number;
+      };
+      hitosDesembolso?: HitoDesembolsoHbi[];
     }) => {
       if (MOCK) {
         return delay(
@@ -165,7 +180,11 @@ export function useCrearOperacionHbi() {
             nombreCredito: body.nombreCredito,
             descripcion: body.descripcion,
             deudor: body.deudor,
+            deudorId: body.deudorId,
+            tipoCredito: body.tipoCredito,
             serviciosActivos: body.serviciosActivos as TipoServicioHbi[],
+            estructuraFinanciera: body.estructuraFinanciera,
+            hitosDesembolso: body.hitosDesembolso,
           })
         );
       }
