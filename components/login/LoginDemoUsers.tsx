@@ -44,7 +44,7 @@ export function LoginDemoUsers({ callbackUrl }: Props) {
   return (
     <div className="mt-6 border-t border-slate-200 pt-6">
       <p className="text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-        Acceso demo HBI
+        Acceso demo HBI — usuario con permisos completos
       </p>
       <div className="mt-3">
         <button
@@ -70,8 +70,8 @@ export function LoginDemoUsers({ callbackUrl }: Props) {
         </button>
       </div>
       <p className="mt-2 text-center text-xs text-slate-500">
-        Un clic para entrar · contraseña manual:{' '}
-        <code className="rounded bg-slate-100 px-1">{DEMO_PASSWORD}</code>
+        Un clic: operaciones, Kanban, documentos, correos, desembolsos y trazabilidad. Contraseña
+        manual: <code className="rounded bg-slate-100 px-1">{DEMO_PASSWORD}</code>
       </p>
       {error ? <p className="mt-2 text-center text-xs text-red-600">{error}</p> : null}
     </div>

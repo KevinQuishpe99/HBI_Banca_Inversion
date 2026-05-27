@@ -47,9 +47,10 @@ const SECCIONES = [
     contenido: (
       <>
         <p className="mb-3">
-          Por ahora el demo usa <strong>un solo usuario</strong>. Contraseña:{' '}
+          El demo usa <strong>un solo usuario con acceso completo</strong> a todo el módulo HBI.
+          Contraseña:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5">{DEMO_PASSWORD}</code> — o un clic en
-          el login.
+          «Entrar como María González».
         </p>
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-3 text-sm">
           <p className="font-medium text-slate-900">
@@ -57,10 +58,13 @@ const SECCIONES = [
           </p>
           <p className="text-slate-600">{DEMO_USUARIO_PRINCIPAL.email}</p>
           <p className="mt-1 text-slate-600">{DEMO_USUARIO_PRINCIPAL.descripcion}</p>
+          <p className="mt-2 text-xs font-medium text-blue-800">
+            Puede: crear operaciones, Kanban, subir/ver documentos, correos, ficha de viabilidad,
+            desembolsos por hitos, trazabilidad, covenants, comité, simulador y reporte sindicado.
+          </p>
         </div>
         <p className="mt-3 text-sm text-slate-600">
-          Gestiona desembolsos por fases del proyecto: define cuántos desembolsos, % y fechas al crear
-          una operación; la evidencia se ve en el detalle del crédito.
+          Las acciones quedan registradas a su nombre en trazabilidad (documentos, fases, desembolsos).
         </p>
       </>
     ),

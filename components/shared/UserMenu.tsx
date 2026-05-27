@@ -7,6 +7,7 @@ import { ChangePasswordModal } from '@/components/shared/ChangePasswordModal';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { esModoDemo } from '@/lib/demo/app-mode';
+import { findDemoUserByEmail } from '@/lib/auth/demo-users';
 import { roleLabels as baseRoleLabels } from '@/components/admin/user-management/labels';
 
 export function UserMenu() {
@@ -33,6 +34,13 @@ export function UserMenu() {
 
   const roleText = useMemo(() => {
     if (!user) return '';
+    if (esModoDemo()) {
+      const demo = findDemoUserByEmail(user.email ?? '');
+      if (demo?.accesoDemoCompleto) {
+        return `${demo.areaName ?? 'HBI'} · Acceso completo demo`;
+      }
+      if (demo?.descripcion) return demo.descripcion;
+    }
     if (user.role === 'AREA_USER') {
       const areaLabel =
         user.areaId != null
@@ -76,17 +84,19 @@ export function UserMenu() {
               <div className="text-xs text-gray-500">{user.email}</div>
               <div className="text-xs text-gray-500 mt-1">{roleText}</div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                setPasswordModalOpen(true);
-              }}
-              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <KeyRound className="w-4 h-4" />
-              Cambiar contraseña
-            </button>
+            {!esModoDemo() ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setPasswordModalOpen(true);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <KeyRound className="w-4 h-4" />
+                Cambiar contraseña
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleSignOut}

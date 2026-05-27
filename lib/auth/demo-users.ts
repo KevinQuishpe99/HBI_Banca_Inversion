@@ -12,6 +12,8 @@ export interface DemoUser {
   puedeFirmar?: boolean;
   descripcion: string;
   servicioHbi?: 'ANEXO_1' | 'ANEXO_2' | 'ANEXO_3' | 'GESTION' | 'DEUDOR' | 'ACREEDOR';
+  /** En demo: puede usar todo el módulo HBI (operaciones, desembolsos, trazabilidad, IB+). */
+  accesoDemoCompleto?: boolean;
 }
 
 /** Credenciales compartidas del demo (solo entorno de demostración). */
@@ -24,10 +26,12 @@ export const DEMO_USERS: DemoUser[] = [
     password: DEMO_PASSWORD,
     nombre: 'María',
     apellido: 'González',
-    rol: 'USER',
-    areaName: 'Agente Administrativo',
+    rol: 'ADMIN',
+    puedeFirmar: true,
+    areaName: 'Agente Administrativo (Anexo 1)',
     descripcion: 'Analista HBI — Anexo 1 (administración y desembolsos)',
     servicioHbi: 'ANEXO_1',
+    accesoDemoCompleto: true,
   },
   {
     id: 'demo-user-carlos',
@@ -99,12 +103,19 @@ export function isDemoAuthEnabled(): boolean {
   return esModoDemo();
 }
 
+/** Solo el usuario principal puede iniciar sesión en el demo público. */
 export function findDemoUser(email: string, password: string): DemoUser | null {
   if (!isDemoAuthEnabled()) return null;
   const emailNorm = email.trim().toLowerCase();
-  const user = DEMO_USERS.find((u) => u.email.toLowerCase() === emailNorm);
+  const user = DEMO_USERS_LOGIN.find((u) => u.email.toLowerCase() === emailNorm);
   if (!user || user.password !== password) return null;
   return user;
+}
+
+export function findDemoUserByEmail(email: string): DemoUser | null {
+  if (!isDemoAuthEnabled()) return null;
+  const emailNorm = email.trim().toLowerCase();
+  return DEMO_USERS.find((u) => u.email.toLowerCase() === emailNorm) ?? null;
 }
 
 export function demoUserToSession(user: DemoUser) {
@@ -114,6 +125,6 @@ export function demoUserToSession(user: DemoUser) {
     name: `${user.nombre} ${user.apellido}`,
     role: user.rol,
     areaName: user.areaName,
-    canSign: !!user.puedeFirmar,
+    canSign: !!user.puedeFirmar || user.accesoDemoCompleto === true,
   };
 }
