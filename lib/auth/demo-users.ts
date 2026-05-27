@@ -86,9 +86,11 @@ export const DEMO_USERS: DemoUser[] = [
   },
 ];
 
-/** Activo cuando no hay PostgreSQL (demo en Vercel o local). */
+import { esModoDemo } from '@/lib/demo/app-mode';
+
+/** Activo en demo HBI (sin PostgreSQL). */
 export function isDemoAuthEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_HBI_MOCK_DATA !== 'false';
+  return esModoDemo();
 }
 
 export function findDemoUser(email: string, password: string): DemoUser | null {

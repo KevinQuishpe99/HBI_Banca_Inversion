@@ -3,6 +3,7 @@ import { successResponse, errorResponse } from '@/lib/utils/response';
 import { requireAuth } from '@/lib/auth/get-session';
 import { FALLBACK_META_CASE_STATUSES } from '@/lib/status-config';
 import { caseStatusCodeFromConfigEstadoId } from '@/lib/db/estado-tramite-map';
+import { enModoDemoMeta, META_DEMO } from '@/lib/demo/meta-demo';
 
 type Row = { id: number; label: string; variant: string; sort_order: number };
 
@@ -11,6 +12,10 @@ export async function GET() {
     await requireAuth();
   } catch (error) {
     return errorResponse(error);
+  }
+
+  if (enModoDemoMeta()) {
+    return successResponse(META_DEMO.caseStatuses);
   }
 
   try {

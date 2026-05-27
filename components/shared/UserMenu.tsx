@@ -6,6 +6,7 @@ import { KeyRound, LogOut, User } from 'lucide-react';
 import { ChangePasswordModal } from '@/components/shared/ChangePasswordModal';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { esModoDemo } from '@/lib/demo/app-mode';
 import { roleLabels as baseRoleLabels } from '@/components/admin/user-management/labels';
 
 export function UserMenu() {
@@ -27,7 +28,7 @@ export function UserMenu() {
       }, {});
     },
     staleTime: 60_000,
-    enabled: !!user,
+    enabled: !!user && !esModoDemo(),
   });
 
   const roleText = useMemo(() => {

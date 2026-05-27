@@ -2,6 +2,7 @@ import '@/lib/auth/auth-env';
 import { withAuth, type NextRequestWithAuth } from 'next-auth/middleware';
 import type { NextFetchEvent, NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { usaDatosQuemadosHbi } from '@/lib/hbi/mock-config';
 import { rateLimitResponse } from '@/lib/security/rate-limit';
 import { resolveAuthSecret } from '@/lib/auth/auth-env';
 
@@ -10,7 +11,7 @@ const authMiddleware = withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    const demoHbi = process.env.NEXT_PUBLIC_HBI_MOCK_DATA !== 'false';
+    const demoHbi = usaDatosQuemadosHbi();
 
     if (!demoHbi && path === '/' && token?.role === 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/users', req.url));

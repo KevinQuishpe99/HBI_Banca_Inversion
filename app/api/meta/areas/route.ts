@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { successResponse, errorResponse } from '@/lib/utils/response';
+import { enModoDemoMeta, META_DEMO } from '@/lib/demo/meta-demo';
 
 type AreaRow = {
   id: number;
@@ -19,6 +20,9 @@ type AreaRow = {
  */
 export async function GET() {
   try {
+    if (enModoDemoMeta()) {
+      return successResponse(META_DEMO.areas);
+    }
     const result = await query<AreaRow>(
       `SELECT ca.id,
               ca.id::text AS area,

@@ -1,4 +1,6 @@
-/** true = datos quemados en memoria (sin PostgreSQL). Poner "false" cuando la BD esté lista. */
+import { esModoDemo } from '@/lib/demo/app-mode';
+
+/** Datos quemados en memoria/localStorage (sin PostgreSQL). */
 export function usaDatosQuemadosHbi(): boolean {
-  return process.env.NEXT_PUBLIC_HBI_MOCK_DATA !== 'false';
+  return esModoDemo();
 }

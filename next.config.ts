@@ -4,9 +4,6 @@ import { DEMO_AUTH_SECRET } from "./lib/auth/auth-env";
 const isProd = process.env.NODE_ENV === "production";
 
 function resolveBuildAuthUrl(): string {
-  if (process.env.NEXTAUTH_URL?.trim()) {
-    return process.env.NEXTAUTH_URL.trim().replace(/\/$/, "");
-  }
   const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (productionHost) {
     return productionHost.startsWith("http")
@@ -42,7 +39,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   env: {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || DEMO_AUTH_SECRET,
+    NEXTAUTH_SECRET: DEMO_AUTH_SECRET,
     NEXTAUTH_URL: resolveBuildAuthUrl(),
   },
   compiler: {

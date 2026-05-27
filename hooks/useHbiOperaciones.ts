@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usaDatosQuemadosHbi } from '@/lib/hbi/mock-config';
+import { esModoDemo } from '@/lib/demo/app-mode';
 import { MockHbiStore } from '@/lib/hbi/mock-store';
 import type {
   ActividadServicio,
@@ -19,7 +19,7 @@ import type {
   TipoServicioHbi,
 } from '@/types/hbi/operacion.types';
 
-const MOCK = usaDatosQuemadosHbi();
+const MOCK = esModoDemo();
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);

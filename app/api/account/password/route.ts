@@ -6,6 +6,7 @@ import { successResponse, errorResponse } from '@/lib/utils/response';
 import { ValidationError } from '@/lib/utils/errors';
 import { changePasswordSchema } from '@/lib/validations/account-password.schema';
 import { isMicrosoftOAuthConfigured } from '@/lib/auth/microsoft-auth';
+import { esModoDemo } from '@/lib/demo/app-mode';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,6 +18,12 @@ export const runtime = 'nodejs';
 export async function GET() {
   try {
     const session = await requireAuth();
+    if (esModoDemo()) {
+      return successResponse({
+        hasLocalPassword: true,
+        microsoftLoginEnabled: false,
+      });
+    }
     const r = await query<{ tiene_hash: boolean }>(
       `SELECT (hash_contrasena IS NOT NULL AND trim(hash_contrasena) <> '') AS tiene_hash
        FROM usuarios WHERE id = $1`,
@@ -40,6 +47,11 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await requireAuth();
+    if (esModoDemo()) {
+      return successResponse({
+        message: 'Modo demo: use la contraseña Demo2026! (no se puede cambiar aquí).',
+      });
+    }
     const body = await request.json();
     const data = changePasswordSchema.parse(body);
 
