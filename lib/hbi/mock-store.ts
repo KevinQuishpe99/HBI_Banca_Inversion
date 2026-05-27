@@ -27,6 +27,19 @@ import type {
   TipoServicioHbi,
 } from '@/types/hbi/operacion.types';
 import type { HitoDesembolsoHbi } from '@/types/hbi/cliente.types';
+import {
+  generarComiteOperacion,
+  generarCovenantsOperacion,
+  generarObligacionesOperacion,
+} from '@/lib/hbi/ib-generators';
+import type {
+  CarteraKpis,
+  CovenantFinanciero,
+  EstadoCovenant,
+  ItemComiteCredito,
+  ObligacionContractual,
+  ReporteSindicato,
+} from '@/types/hbi/ib-avanzado.types';
 
 const ORDEN_FASES: FaseWorkflowHbi[] = [
   'FASE_1_CONTRATOS',
@@ -76,6 +89,7 @@ function ensureHydrated(): void {
   if (snap?.store && typeof snap.store === 'object') {
     store = snap.store as Store;
     seq = typeof snap.seq === 'number' ? snap.seq : seq;
+    migrarIbAvanzadoSiFalta();
   }
 }
 
@@ -108,7 +122,34 @@ type Store = {
   actividades: ActividadServicio[];
   historial: HistorialEntry[];
   expedientes: ExpedienteMaestro[];
+  covenants: CovenantFinanciero[];
+  obligaciones: ObligacionContractual[];
+  comiteItems: ItemComiteCredito[];
 };
+
+function seqIb(): { next: () => number } {
+  return { next: () => { seq += 1; return seq; } };
+}
+
+function poblarIbAvanzadoOperacion(op: OperacionCredito, target: Store): void {
+  const s = seqIb();
+  target.covenants.push(...generarCovenantsOperacion(op.id, s));
+  target.obligaciones.push(...generarObligacionesOperacion(op, s));
+  target.comiteItems.push(...generarComiteOperacion(op, s));
+}
+
+function migrarIbAvanzadoSiFalta(): void {
+  store.covenants = store.covenants ?? [];
+  store.obligaciones = store.obligaciones ?? [];
+  store.comiteItems = store.comiteItems ?? [];
+  let changed = false;
+  for (const op of store.operaciones) {
+    if (store.covenants.some((c) => c.operacionId === op.id)) continue;
+    poblarIbAvanzadoOperacion(op, store);
+    changed = true;
+  }
+  if (changed) persist();
+}
 
 function crearExpediente(op: OperacionCredito, docs: DocumentoContractual[], correos: CorreoOperacion[]): ExpedienteMaestro {
   const estructura = op.metadata?.estructuraFinanciera as Record<string, unknown> | undefined;
@@ -901,7 +942,22 @@ function seedStore(): Store {
     return crearExpediente(op, docs, cor);
   });
 
-  return { operaciones, documentos, correos, correosEnviados, actividades, historial, expedientes };
+  const base: Store = {
+    operaciones,
+    documentos,
+    correos,
+    correosEnviados,
+    actividades,
+    historial,
+    expedientes,
+    covenants: [],
+    obligaciones: [],
+    comiteItems: [],
+  };
+  for (const op of operaciones) {
+    poblarIbAvanzadoOperacion(op, base);
+  }
+  return base;
 }
 
 let store: Store = seedStore();
@@ -1201,6 +1257,7 @@ export const MockHbiStore = {
       usuarioNombre: actor(),
       creadoEn: op.creadoEn,
     });
+    poblarIbAvanzadoOperacion(op, store);
     persist();
     return op;
   },
@@ -1391,4 +1448,218 @@ export const MockHbiStore = {
     persist();
     return act;
   },
+
+  covenants(operacionId: string): CovenantFinanciero[] {
+    touchStore();
+    migrarIbAvanzadoSiFalta();
+    return store.covenants.filter((c) => c.operacionId === operacionId);
+  },
+
+  obligaciones(operacionId: string): ObligacionContractual[] {
+    touchStore();
+    migrarIbAvanzadoSiFalta();
+    return store.obligaciones
+      .filter((o) => o.operacionId === operacionId)
+      .sort((a, b) => new Date(a.fechaLimite).getTime() - new Date(b.fechaLimite).getTime());
+  },
+
+  comite(operacionId: string): ItemComiteCredito[] {
+    touchStore();
+    migrarIbAvanzadoSiFalta();
+    return store.comiteItems
+      .filter((c) => c.operacionId === operacionId)
+      .sort((a, b) => new Date(a.fechaSesion).getTime() - new Date(b.fechaSesion).getTime());
+  },
+
+  actualizarCovenant(covenantId: string, estado: EstadoCovenant): CovenantFinanciero {
+    touchStore();
+    const cov = store.covenants.find((c) => c.id === covenantId);
+    if (!cov) throw new Error('Covenant no encontrado');
+    cov.estado = estado;
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId: cov.operacionId,
+      tipoEvento: 'COVENANT_ACTUALIZADO',
+      comentario: `${cov.codigo} → ${estado}`,
+      usuarioNombre: actor(),
+      creadoEn: new Date().toISOString(),
+    });
+    persist();
+    return cov;
+  },
+
+  marcarObligacionCumplida(obligacionId: string): ObligacionContractual {
+    touchStore();
+    const obl = store.obligaciones.find((o) => o.id === obligacionId);
+    if (!obl) throw new Error('Obligación no encontrada');
+    obl.cumplida = true;
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId: obl.operacionId,
+      tipoEvento: 'OBLIGACION_CUMPLIDA',
+      comentario: obl.titulo,
+      usuarioNombre: actor(),
+      creadoEn: new Date().toISOString(),
+    });
+    persist();
+    return obl;
+  },
+
+  votarComite(
+    comiteId: string,
+    voto: 'APROBAR' | 'RECHAZAR' | 'APROBAR_SESION'
+  ): ItemComiteCredito {
+    touchStore();
+    const item = store.comiteItems.find((c) => c.id === comiteId);
+    if (!item) throw new Error('Ítem de comité no encontrado');
+
+    if (voto === 'APROBAR') {
+      item.votosAprobacion += 1;
+      if (item.votosAprobacion >= 3 && item.estado !== 'RECHAZADO') {
+        item.estado = 'APROBADO';
+        sincronizarHitoAprobado(item);
+      } else if (item.estado === 'PENDIENTE') {
+        item.estado = 'EN_REVISION';
+      }
+    } else if (voto === 'RECHAZAR') {
+      item.votosRechazo += 1;
+      if (item.votosRechazo >= 2) item.estado = 'RECHAZADO';
+    } else if (voto === 'APROBAR_SESION') {
+      item.estado = 'APROBADO';
+      item.votosAprobacion = Math.max(item.votosAprobacion, 5);
+      sincronizarHitoAprobado(item);
+    }
+
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId: item.operacionId,
+      tipoEvento: 'COMITE_VOTO',
+      comentario: `${item.titulo} — ${voto} (${item.estado})`,
+      usuarioNombre: actor(),
+      creadoEn: new Date().toISOString(),
+    });
+    persist();
+    return item;
+  },
+
+  generarReporteSindicato(operacionId: string): ReporteSindicato {
+    touchStore();
+    const op = MockHbiStore.obtener(operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const estructura = op.metadata?.estructuraFinanciera as
+      | { montoTotal?: number; moneda?: string; acreedores?: Array<{ razonSocial: string }> }
+      | undefined;
+    const hitos = (op.metadata?.hitosDesembolso ?? []) as HitoDesembolsoHbi[];
+    const desembolsado = hitos
+      .filter((h) => h.aprobado)
+      .reduce((acc, h) => acc + (h.montoAprobado ?? h.monto ?? 0), 0);
+    const montoTotal = estructura?.montoTotal ?? 0;
+    const covenants = store.covenants.filter((c) => c.operacionId === operacionId);
+    const obligaciones = store.obligaciones.filter((o) => o.operacionId === operacionId);
+    const ahora = new Date().toISOString();
+    const reporte: ReporteSindicato = {
+      id: uid('rep-sind'),
+      operacionId,
+      periodo: `Q${Math.ceil((new Date().getMonth() + 1) / 3)} ${new Date().getFullYear()}`,
+      generadoEn: ahora,
+      generadoPor: actor(),
+      resumenEjecutivo: `Operación ${op.codigoOperacion} — ${op.nombreCredito}. Saldo vigente con ${covenants.filter((c) => c.estado === 'EN_RIESGO' || c.estado === 'INCUMPLIDO').length} covenant(s) en seguimiento reforzado. Próximo comité: ${store.comiteItems.filter((c) => c.operacionId === operacionId && c.estado === 'PENDIENTE').length} ítem(s) pendiente(s).`,
+      metricas: {
+        saldoVigente: montoTotal - desembolsado,
+        desembolsado,
+        porDesembolsar: Math.max(0, montoTotal - desembolsado),
+        covenantsEnRiesgo: covenants.filter((c) => c.estado === 'EN_RIESGO' || c.estado === 'INCUMPLIDO').length,
+        obligacionesVencidas: obligaciones.filter((o) => !o.cumplida && new Date(o.fechaLimite) < new Date()).length,
+      },
+      destinatarios: (estructura?.acreedores ?? []).map((a) => a.razonSocial),
+      enviado: false,
+    };
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId,
+      tipoEvento: 'REPORTE_SINDICATO',
+      comentario: `Reporte ${reporte.periodo} generado`,
+      usuarioNombre: actor(),
+      creadoEn: ahora,
+    });
+    persist();
+    return reporte;
+  },
+
+  enviarReporteSindicato(reporte: ReporteSindicato): ReporteSindicato {
+    touchStore();
+    const enviado = { ...reporte, enviado: true };
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId: reporte.operacionId,
+      tipoEvento: 'REPORTE_SINDICATO_ENVIADO',
+      comentario: `Reporte ${reporte.periodo} enviado al sindicado (${reporte.destinatarios.length} destinatarios)`,
+      usuarioNombre: actor(),
+      creadoEn: new Date().toISOString(),
+    });
+    persist();
+    return enviado;
+  },
+
+  carteraKpis(): CarteraKpis {
+    touchStore();
+    migrarIbAvanzadoSiFalta();
+    const ops = store.operaciones;
+    let montoTotal = 0;
+    const sectores = new Map<string, { monto: number; operaciones: number }>();
+
+    for (const op of ops) {
+      const e = op.metadata?.estructuraFinanciera as { montoTotal?: number } | undefined;
+      const m = e?.montoTotal ?? 25_000_000;
+      montoTotal += m;
+      const sector = String(op.metadata?.tipoCredito ?? 'Sindicado').replace(/_/g, ' ');
+      const prev = sectores.get(sector) ?? { monto: 0, operaciones: 0 };
+      sectores.set(sector, { monto: prev.monto + m, operaciones: prev.operaciones + 1 });
+    }
+
+    const ahora = Date.now();
+    const en7Dias = ahora + 7 * 24 * 60 * 60 * 1000;
+
+    return {
+      operacionesActivas: ops.length,
+      montoTotalCartera: montoTotal,
+      monedaPrincipal: 'USD',
+      alertasCriticas: ops.filter((o) => o.alertasActivas).length,
+      covenantsEnRiesgo: store.covenants.filter(
+        (c) => c.estado === 'EN_RIESGO' || c.estado === 'INCUMPLIDO'
+      ).length,
+      comitesPendientes: store.comiteItems.filter(
+        (c) => c.estado === 'PENDIENTE' || c.estado === 'EN_REVISION'
+      ).length,
+      obligacionesProximas7Dias: store.obligaciones.filter(
+        (o) => !o.cumplida && new Date(o.fechaLimite).getTime() <= en7Dias
+      ).length,
+      desembolsosPendientesAprobacion: store.comiteItems.filter(
+        (c) => c.tipo === 'DESembolso' && (c.estado === 'PENDIENTE' || c.estado === 'EN_REVISION')
+      ).length,
+      exposicionPorSector: [...sectores.entries()]
+        .map(([sector, v]) => ({ sector, ...v }))
+        .sort((a, b) => b.monto - a.monto),
+    };
+  },
 };
+
+function sincronizarHitoAprobado(item: ItemComiteCredito): void {
+  if (!item.hitoId) return;
+  const op = store.operaciones.find((o) => o.id === item.operacionId);
+  if (!op?.metadata?.hitosDesembolso) return;
+  const hitos = op.metadata.hitosDesembolso as HitoDesembolsoHbi[];
+  const hito = hitos.find((h) => h.id === item.hitoId);
+  if (!hito) return;
+  hito.aprobado = true;
+  hito.estado = 'APROBADO';
+  hito.montoAprobado = item.montoSolicitado;
+  const obl = store.obligaciones.find(
+    (o) =>
+      o.operacionId === item.operacionId &&
+      o.tipo === 'COMITE_CREDITO' &&
+      item.hitoId &&
+      o.titulo.includes(item.hitoId)
+  );
+  if (obl) obl.cumplida = true;
+}

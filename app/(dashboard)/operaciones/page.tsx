@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Plus, Filter } from 'lucide-react';
+import { Loader2, Plus, Filter, Kanban, List } from 'lucide-react';
 import { useHbiOperaciones } from '@/hooks/useHbiOperaciones';
 import { OperacionListItem } from '@/components/hbi/OperacionListItem';
+import { PipelineKanban } from '@/components/hbi/PipelineKanban';
 import { FASES_WORKFLOW, type FaseWorkflowHbi } from '@/types/hbi/operacion.types';
 import { MockModeBanner } from '@/components/hbi/MockModeBanner';
 
 export default function OperacionesPage() {
   const [faseFiltro, setFaseFiltro] = useState<FaseWorkflowHbi | ''>('');
+  const [vista, setVista] = useState<'lista' | 'kanban'>('lista');
   const { data, isLoading, error } = useHbiOperaciones(faseFiltro || undefined);
 
   return (
@@ -47,8 +49,36 @@ export default function OperacionesPage() {
             </option>
           ))}
         </select>
+        <div className="ml-auto flex rounded-lg border border-slate-200 p-0.5">
+          <button
+            type="button"
+            onClick={() => setVista('lista')}
+            className={[
+              'inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium',
+              vista === 'lista' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50',
+            ].join(' ')}
+          >
+            <List className="h-4 w-4" />
+            Lista
+          </button>
+          <button
+            type="button"
+            onClick={() => setVista('kanban')}
+            className={[
+              'inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium',
+              vista === 'kanban' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50',
+            ].join(' ')}
+          >
+            <Kanban className="h-4 w-4" />
+            Kanban
+          </button>
+        </div>
       </div>
 
+      {vista === 'kanban' && !faseFiltro ? <PipelineKanban /> : null}
+
+      {vista === 'lista' || faseFiltro ? (
+        <>
       {isLoading ? (
         <div className="flex h-40 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -70,6 +100,8 @@ export default function OperacionesPage() {
           <OperacionListItem key={op.id} operacion={op} />
         ))}
       </div>
+        </>
+      ) : null}
     </div>
   );
 }

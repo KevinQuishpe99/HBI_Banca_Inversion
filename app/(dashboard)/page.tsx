@@ -7,6 +7,7 @@ import { FASES_WORKFLOW } from '@/types/hbi/operacion.types';
 import { OperacionListItem } from '@/components/hbi/OperacionListItem';
 import { MockModeBanner } from '@/components/hbi/MockModeBanner';
 import { ServiciosHbiInfoCard } from '@/components/hbi/ServiciosHbiInfoCard';
+import { DashboardEjecutivoHbi } from '@/components/hbi/DashboardEjecutivoHbi';
 
 const FASE_ICONS = [FileText, Mail, FolderOpen, ListChecks] as const;
 
@@ -40,6 +41,8 @@ export default function DashboardPage() {
           Nueva operación
         </Link>
       </div>
+
+      <DashboardEjecutivoHbi />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {porFase.map((fase, i) => {
