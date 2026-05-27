@@ -1,0 +1,107 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Variables de entorno con secretos (nunca subir)
+.env
+.env.*
+!.env.example
+.env.p
+.env copy
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# vercel
+.vercel
+
+# Turbopack / build caches
+.turbo
+.cache
+.eslintcache
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database local
+*.sqlite
+*.sqlite3
+*.db
+
+# Backup files
+*.bak
+*.backup
+
+# Volcados y backups de base de datos
+*.dump
+*.sql.gz
+*.sql.bak
+
+.env.db
+
+# --- Herramientas IA / agentes (no subir al repo) ---
+.agents/
+.agent/
+.kilocode/
+.kilo/
+.kiro/
+skills-lock.json
+
+# Cursor / editor local
+.cursor/
+
+# Transcripciones o metadatos de agentes (si aparecen en el proyecto)
+**/agent-transcripts/
+*.agent-transcript.jsonl

@@ -1,0 +1,2 @@
+# Normaliza finales de línea en checkout/commit (evita diffs ruidosos entre Windows/Linux)
+* text=auto

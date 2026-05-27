@@ -1,0 +1,47 @@
+/**
+ * Ejecuta database/migration-status-config.sql (case_status_config + workflow_step_status_config).
+ */
+require('dotenv').config({ path: '.env' });
+require('dotenv').config({ path: '.env.local' });
+const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
+
+function shouldUseSsl() {
+  const raw = (process.env.DB_SSL ?? '').trim().toLowerCase();
+  if (raw === 'true' || raw === '1' || raw === 'yes') return true;
+  if (raw === 'false' || raw === '0' || raw === 'no') return false;
+  return false;
+}
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: shouldUseSsl() ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 30000,
+});
+
+async function main() {
+  if (!process.env.DB_HOST || !process.env.DB_NAME || process.env.DB_PASSWORD == null || process.env.DB_PASSWORD === '') {
+    console.error('Faltan variables DB_* en .env o .env.local');
+    process.exit(1);
+  }
+  const client = await pool.connect();
+  try {
+    const sqlPath = path.join(__dirname, 'migration-status-config.sql');
+    const sql = fs.readFileSync(sqlPath, 'utf8');
+    await client.query(sql);
+    console.log('OK: migration-status-config aplicada (case_status_config, workflow_step_status_config)');
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

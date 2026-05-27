@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --color-hbi-primary: #0b3a82;
+  --color-hbi-primary-hover: #0a326f;
+  --color-hbi-secondary: #2e5fa7;
+  --color-hbi-accent: #d9e6f8;
+  --color-hbi-border: #c6d7f1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Administración: contraste legible (evitar gris claro + texto gris medio). */
+  --color-admin-surface: #ffffff;
+  --color-admin-muted: #f3f4f6;
+  --color-admin-border: #d1d5db;
+  --color-admin-text: #111827;
+  --color-admin-text-secondary: #374151;
+  --color-admin-text-strong: #030712;
+  --color-admin-placeholder: #6b7280;
+  --color-admin-primary: #2563eb;
+  --color-admin-primary-hover: #1d4ed8;
+
+  --color-brand-primary: var(--color-hbi-primary);
+  --color-brand-primary-hover: var(--color-hbi-primary-hover);
+  --color-brand-secondary: var(--color-hbi-secondary);
+  --color-brand-accent: var(--color-hbi-accent);
+  --color-brand-border: var(--color-hbi-border);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Demo HBI: mantener modo claro para evitar contraste blanco/blanco en componentes heredados. */
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
