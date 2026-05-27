@@ -1,7 +1,9 @@
+import '@/lib/auth/auth-env';
 import { withAuth, type NextRequestWithAuth } from 'next-auth/middleware';
 import type { NextFetchEvent, NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { rateLimitResponse } from '@/lib/security/rate-limit';
+import { resolveAuthSecret } from '@/lib/auth/auth-env';
 
 const authMiddleware = withAuth(
   function proxy(req) {
@@ -37,6 +39,7 @@ const authMiddleware = withAuth(
     return NextResponse.next();
   },
   {
+    secret: resolveAuthSecret(),
     callbacks: {
       authorized: ({ token, req }) => {
         const path = req.nextUrl.pathname;

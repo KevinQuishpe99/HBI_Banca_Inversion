@@ -101,22 +101,9 @@ import {
   isMicrosoftOAuthConfigured,
 } from '@/lib/auth/microsoft-auth';
 import { demoUserToSession, findDemoUser, isDemoAuthEnabled } from '@/lib/auth/demo-users';
+import { ensureAuthEnv, resolveAuthSecret } from '@/lib/auth/auth-env';
 
-const AUTH_URL_FALLBACK =
-  process.env.NEXTAUTH_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-const AUTH_SECRET_FALLBACK = process.env.NEXTAUTH_SECRET ?? 'hbi-demo-secret-local-cache-only';
-
-/**
- * Fallback explícito para demo local/Vercel sin .env.
- * NextAuth emite warnings si no ve estas variables.
- */
-if (!process.env.NEXTAUTH_URL) {
-  process.env.NEXTAUTH_URL = AUTH_URL_FALLBACK;
-}
-if (!process.env.NEXTAUTH_SECRET) {
-  process.env.NEXTAUTH_SECRET = AUTH_SECRET_FALLBACK;
-}
+ensureAuthEnv();
 
 const LEGACY_AREA_ROLES = ['COMERCIAL', 'TECNICA', 'FINANCIERA', 'LEGAL', 'DIRECTOR_GENERAL'] as const;
 
@@ -391,7 +378,7 @@ export const authOptions: NextAuthOptions = {
     maxAge: 8 * 60 * 60,
   },
 
-  secret: AUTH_SECRET_FALLBACK,
+  secret: resolveAuthSecret(),
 
   debug: process.env.NEXTAUTH_DEBUG === 'true',
 };

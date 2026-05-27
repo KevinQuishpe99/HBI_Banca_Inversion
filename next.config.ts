@@ -1,6 +1,23 @@
 import type { NextConfig } from "next";
+import { DEMO_AUTH_SECRET } from "./lib/auth/auth-env";
 
 const isProd = process.env.NODE_ENV === "production";
+
+function resolveBuildAuthUrl(): string {
+  if (process.env.NEXTAUTH_URL?.trim()) {
+    return process.env.NEXTAUTH_URL.trim().replace(/\/$/, "");
+  }
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (productionHost) {
+    return productionHost.startsWith("http")
+      ? productionHost.replace(/\/$/, "")
+      : `https://${productionHost}`;
+  }
+  if (process.env.VERCEL_URL?.trim()) {
+    return `https://${process.env.VERCEL_URL.trim()}`;
+  }
+  return "http://localhost:3000";
+}
 
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
@@ -24,6 +41,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  env: {
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || DEMO_AUTH_SECRET,
+    NEXTAUTH_URL: resolveBuildAuthUrl(),
+  },
   compiler: {
     removeConsole: isProd ? { exclude: ["error", "warn"] } : false,
   },
