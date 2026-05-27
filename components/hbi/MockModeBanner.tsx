@@ -34,7 +34,10 @@ export function MockModeBanner() {
           <p className="mt-0.5 text-amber-900/90">
             Operaciones, documentos, correos y trazabilidad se guardan en la caché del navegador
             (localStorage){savedAt ? ` · última actualización: ${new Date(savedAt).toLocaleString('es-CO')}` : ''}.
-            Login con usuarios de prueba en la pantalla de acceso.
+            Login con usuarios de prueba en la pantalla de acceso.{' '}
+            <a href="/#guia-demo-hbi" className="font-medium underline hover:text-amber-950">
+              Ver guía completa
+            </a>
           </p>
         </div>
       </div>

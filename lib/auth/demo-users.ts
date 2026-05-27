@@ -88,6 +88,12 @@ export const DEMO_USERS: DemoUser[] = [
 
 import { esModoDemo } from '@/lib/demo/app-mode';
 
+/** Usuario único visible en login demo (por ahora). */
+export const DEMO_USUARIO_PRINCIPAL = DEMO_USERS[0];
+
+/** Lista reducida para pantalla de login. */
+export const DEMO_USERS_LOGIN: DemoUser[] = [DEMO_USUARIO_PRINCIPAL];
+
 /** Activo en demo HBI (sin PostgreSQL). */
 export function isDemoAuthEnabled(): boolean {
   return esModoDemo();

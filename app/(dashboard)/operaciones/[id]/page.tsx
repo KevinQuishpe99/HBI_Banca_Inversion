@@ -14,7 +14,9 @@ import { OperacionWorkflowTabs } from '@/components/hbi/OperacionWorkflowTabs';
 import { FASES_WORKFLOW, type FaseWorkflowHbi } from '@/types/hbi/operacion.types';
 import { MockModeBanner } from '@/components/hbi/MockModeBanner';
 import { formatearMonto } from '@/lib/hbi/hitos-plantilla';
-import type { EstructuraFinancieraHbi } from '@/types/hbi/cliente.types';
+import { GestionDesembolsosPanel } from '@/components/hbi/GestionDesembolsosPanel';
+import type { EstructuraFinancieraHbi, HitoDesembolsoHbi } from '@/types/hbi/cliente.types';
+import type { InfoProyectoHbi } from '@/types/hbi/operacion.types';
 
 const ORDEN: FaseWorkflowHbi[] = [
   'FASE_1_CONTRATOS',
@@ -59,6 +61,10 @@ export default function OperacionDetallePage({
   }
 
   const estructura = data.metadata?.estructuraFinanciera as EstructuraFinancieraHbi | undefined;
+  const infoProyecto = data.metadata?.infoProyecto as InfoProyectoHbi | undefined;
+  const hitos = (data.metadata?.hitosDesembolso ?? []) as HitoDesembolsoHbi[];
+  const montoTotal = estructura?.montoTotal ?? hitos.reduce((s, h) => s + (h.monto ?? 0), 0);
+  const moneda = estructura?.moneda ?? 'USD';
 
   return (
     <div className="space-y-8">
@@ -87,6 +93,14 @@ export default function OperacionDetallePage({
             <p className="mt-1 text-xs text-slate-500">
               Expediente maestro activo desde la creación · Agente: {data.agenteFinanciacion}
             </p>
+            {infoProyecto?.responsableNombre ? (
+              <p className="mt-2 text-sm text-teal-800">
+                PMO: {infoProyecto.responsableNombre}
+                {infoProyecto.viabilidad && infoProyecto.viabilidad !== 'EN_EVALUACION'
+                  ? ` · Viabilidad: ${infoProyecto.viabilidad.replace(/_/g, ' ')}`
+                  : ''}
+              </p>
+            ) : null}
           </div>
           {next ? (
             <button
@@ -114,6 +128,15 @@ export default function OperacionDetallePage({
       </div>
 
       <EstadoIntegralBanner estado={estado} isLoading={loadingEstado} />
+
+      {hitos.length > 0 ? (
+        <GestionDesembolsosPanel
+          operacionId={data.id}
+          montoTotal={montoTotal}
+          moneda={moneda}
+          serviciosActivos={data.serviciosActivos}
+        />
+      ) : null}
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Progreso del workflow</h2>

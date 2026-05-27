@@ -7,10 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
-  Calculator,
   Check,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Landmark,
   Loader2,
@@ -22,36 +19,34 @@ import {
 } from 'lucide-react';
 import { useCrearOperacionHbi } from '@/hooks/useHbiOperaciones';
 import { listarAcreedores, listarDeudores } from '@/lib/hbi/catalogo-clientes';
-import { GUIA_ANEXOS, GUIA_FASES_WORKFLOW } from '@/lib/hbi/anexos-guia';
+import { GUIA_FASES_WORKFLOW } from '@/lib/hbi/anexos-guia';
 import {
+  actualizarChecklistHitosPorServicios,
   formatearMonto,
-  generarHitosDesembolso,
+  fechaInputDesdeIso,
+  generarHitosPorCantidad,
+  isoDesdeFechaInput,
   recalcularMontosHitos,
+  repartirPorcentajes,
 } from '@/lib/hbi/hitos-plantilla';
+import { DesembolsosEvidenciaPanel } from '@/components/hbi/DesembolsosEvidenciaPanel';
+import {
+  SERVICIOS_HBI_TODOS,
+  ServiciosHbiContratacion,
+} from '@/components/hbi/ServiciosHbiContratacion';
+import { FASES_PROYECTO_HBI } from '@/lib/hbi/desembolsos-domain';
 import type { HitoDesembolsoHbi, ParticipacionAcreedor, TipoCreditoHbi } from '@/types/hbi/cliente.types';
 import { TIPO_CREDITO_LABEL } from '@/types/hbi/cliente.types';
 import type { TipoServicioHbi } from '@/types/hbi/operacion.types';
-import { TIPOS_SERVICIO_LABEL } from '@/types/hbi/operacion.types';
+import { AGENTE_FINANCIACION_HBI, TIPOS_SERVICIO_LABEL } from '@/types/hbi/operacion.types';
 
 const PASOS = [
   { id: 1, titulo: 'Crédito', icon: FileText },
   { id: 2, titulo: 'Partes', icon: Users },
   { id: 3, titulo: 'Montos y fases', icon: Wallet },
-  { id: 4, titulo: 'Anexos HBI', icon: Shield },
+  { id: 4, titulo: 'Servicios HBI', icon: Shield },
   { id: 5, titulo: 'Resumen', icon: Check },
 ] as const;
-
-const SERVICIOS: TipoServicioHbi[] = [
-  'ANEXO_1_ADMINISTRATIVO',
-  'ANEXO_2_GARANTIAS',
-  'ANEXO_3_CALCULO',
-];
-
-const ICONO_ANEXO = {
-  ANEXO_1_ADMINISTRATIVO: FileText,
-  ANEXO_2_GARANTIAS: Shield,
-  ANEXO_3_CALCULO: Calculator,
-} as const;
 
 export function NuevaOperacionWizard() {
   const router = useRouter();
@@ -72,8 +67,9 @@ export function NuevaOperacionWizard() {
     'ANEXO_2_GARANTIAS',
     'ANEXO_3_CALCULO',
   ]);
+  const [cantidadDesembolsos, setCantidadDesembolsos] = useState(4);
   const [hitos, setHitos] = useState<HitoDesembolsoHbi[]>(() =>
-    generarHitosDesembolso(150_000_000, servicios)
+    generarHitosPorCantidad(4, 150_000_000, servicios)
   );
   const [anexoExpandido, setAnexoExpandido] = useState<TipoServicioHbi | null>(
     'ANEXO_1_ADMINISTRATIVO'
@@ -161,8 +157,46 @@ export function NuevaOperacionWizard() {
     setServicios((prev) => {
       const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
       if (next.length === 0) return prev;
-      setHitos(generarHitosDesembolso(montoTotal, next));
+      setHitos((prevHitos) => actualizarChecklistHitosPorServicios(prevHitos, next));
       return next;
+    });
+  };
+
+  const seleccionarTodosServicios = () => {
+    setServicios(SERVICIOS_HBI_TODOS);
+    setHitos((prevHitos) => actualizarChecklistHitosPorServicios(prevHitos, SERVICIOS_HBI_TODOS));
+  };
+
+  const cambiarCantidadDesembolsos = (n: number) => {
+    setCantidadDesembolsos(n);
+    setHitos(generarHitosPorCantidad(n, montoTotal, servicios));
+  };
+
+  const repartirEquitativamente = () => {
+    const pct = repartirPorcentajes(cantidadDesembolsos);
+    setHitos((prev) =>
+      recalcularMontosHitos(
+        prev.map((h, i) => ({ ...h, porcentaje: pct[i] ?? h.porcentaje })),
+        montoTotal
+      )
+    );
+  };
+
+  const actualizarCampoHito = (
+    id: string,
+    campo: 'nombre' | 'porcentaje' | 'fechaObjetivo' | 'descripcionFase' | 'faseProyecto',
+    valor: string | number
+  ) => {
+    setHitos((prev) => {
+      const next = prev.map((h) => {
+        if (h.id !== id) return h;
+        if (campo === 'nombre') return { ...h, nombre: String(valor) };
+        if (campo === 'descripcionFase') return { ...h, descripcionFase: String(valor) };
+        if (campo === 'faseProyecto') return { ...h, faseProyecto: String(valor) };
+        if (campo === 'porcentaje') return { ...h, porcentaje: Number(valor) || 0 };
+        return { ...h, fechaObjetivo: isoDesdeFechaInput(String(valor)) };
+      });
+      return campo === 'porcentaje' ? recalcularMontosHitos(next, montoTotal) : next;
     });
   };
 
@@ -238,10 +272,11 @@ export function NuevaOperacionWizard() {
         <div className="flex items-start gap-3">
           <Landmark className="mt-0.5 h-8 w-8 text-[var(--color-brand-primary)]" />
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Nueva operación de crédito</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Nueva operación de crédito sindicado</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-600">
-              Configure desde el inicio al deudor, los acreedores del sindicado, el monto aprobado por
-              fases y los Anexos HBI que administrará Helm Banca de Inversión.
+              {AGENTE_FINANCIACION_HBI}: configure deudor, sindicato de acreedores, plan de
+              desembolsos por fases del proyecto y los tres servicios posibles — Agente Administrativo,
+              de Garantías y de Cálculo (Anexos 1, 2 y 3).
             </p>
           </div>
         </div>
@@ -438,10 +473,13 @@ export function NuevaOperacionWizard() {
 
         {paso === 3 ? (
           <section className="space-y-5">
-            <h2 className="text-lg font-semibold text-slate-900">3 · Monto total y desembolsos por fases</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              3 · Monto total y plan de desembolsos
+            </h2>
             <p className="text-sm text-slate-600">
-              Defina el monto aprobado del crédito y apruebe el monto base de cada hito antes del
-              desembolso. HBI validará el checklist documental por Anexo en cada fase.
+              Indique cuántos desembolsos tendrá el proyecto, qué porcentaje del crédito corresponde
+              a cada fase y en qué fecha está programado. La evidencia quedará visible en el
+              expediente de la operación.
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -475,23 +513,46 @@ export function NuevaOperacionWizard() {
               </div>
             </div>
 
-            <p className="text-sm font-medium text-slate-700">
-              Total comprometido acreedores:{' '}
-              <span className="font-mono text-[var(--color-brand-primary)]">
-                {formatearMonto(
-                  acreedores.reduce((s, a) => s + a.montoComprometido, 0),
-                  moneda
-                )}
-              </span>
-              {' · '}
-              Monto aprobado en hitos:{' '}
-              <span className="font-mono text-emerald-700">
-                {formatearMonto(montoAprobadoTotal, moneda)}
-              </span>
-            </p>
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+              <label htmlFor="cantidad" className="block text-sm font-semibold text-slate-800">
+                ¿Cuántos desembolsos tendrá este proyecto? *
+              </label>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Típico en project finance: 2 a 8 desembolsos ligados a hitos de obra o operación.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <select
+                  id="cantidad"
+                  value={cantidadDesembolsos}
+                  onChange={(e) => cambiarCantidadDesembolsos(Number(e.target.value))}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-lg font-semibold text-indigo-800"
+                >
+                  {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                    <option key={n} value={n}>
+                      {n} desembolsos
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={repartirEquitativamente}
+                  className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-50"
+                >
+                  Repartir % equitativamente
+                </button>
+                <span
+                  className={[
+                    'rounded-full px-3 py-1 text-sm font-medium',
+                    porcentajeHitos === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800',
+                  ].join(' ')}
+                >
+                  Suma: {porcentajeHitos}% / 100%
+                </span>
+              </div>
+            </div>
 
             <div className="space-y-3">
-              {hitos.map((h) => (
+              {hitos.map((h, index) => (
                 <article
                   key={h.id}
                   className={[
@@ -499,37 +560,84 @@ export function NuevaOperacionWizard() {
                     h.aprobado ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-white',
                   ].join(' ')}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {h.id} · {h.nombre}
-                      </p>
-                      <p className="mt-0.5 text-sm text-slate-600">
-                        {h.porcentaje}% del total ={' '}
-                        <span className="font-mono font-medium">{formatearMonto(h.monto, moneda)}</span>
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Fecha objetivo:{' '}
-                        {new Date(h.fechaObjetivo).toLocaleDateString('es-CO', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                    Desembolso {index + 1} de {hitos.length}
+                  </p>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-slate-500">Nombre de la fase</label>
+                      <input
+                        value={h.nombre}
+                        onChange={(e) => actualizarCampoHito(h.id, 'nombre', e.target.value)}
+                        className="mt-0.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      />
                     </div>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-slate-500">Descripción de la fase del proyecto</label>
+                      <textarea
+                        rows={2}
+                        value={h.descripcionFase ?? ''}
+                        onChange={(e) => actualizarCampoHito(h.id, 'descripcionFase', e.target.value)}
+                        className="mt-0.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        placeholder="Qué ocurre en el proyecto en este desembolso..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">Fase del proyecto</label>
+                      <select
+                        value={h.faseProyecto ?? ''}
+                        onChange={(e) => actualizarCampoHito(h.id, 'faseProyecto', e.target.value)}
+                        className="mt-0.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        {FASES_PROYECTO_HBI.map((f) => (
+                          <option key={f.codigo} value={f.codigo}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">Porcentaje %</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={h.porcentaje}
+                        onChange={(e) =>
+                          actualizarCampoHito(h.id, 'porcentaje', Number(e.target.value) || 0)
+                        }
+                        className="mt-0.5 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">Fecha programada</label>
+                      <input
+                        type="date"
+                        value={fechaInputDesdeIso(h.fechaObjetivo)}
+                        onChange={(e) => actualizarCampoHito(h.id, 'fechaObjetivo', e.target.value)}
+                        className="mt-0.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-700">
+                    <span className="font-mono font-semibold text-indigo-800">
+                      {h.id}
+                    </span>
+                    {' · '}
+                    Monto calculado:{' '}
+                    <span className="font-mono font-medium">{formatearMonto(h.monto, moneda)}</span>
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={h.aprobado}
                         onChange={(e) => toggleAprobacionHito(h.id, e.target.checked)}
                         className="rounded border-slate-300"
                       />
-                      Aprobar monto base
+                      Aprobar monto base (pre-comité)
                     </label>
-                  </div>
-                  {h.aprobado ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <label className="text-xs text-slate-600">Monto aprobado:</label>
+                    {h.aprobado ? (
                       <input
                         type="number"
                         value={h.montoAprobado}
@@ -537,105 +645,53 @@ export function NuevaOperacionWizard() {
                           actualizarMontoAprobadoHito(h.id, Number(e.target.value) || 0)
                         }
                         className="w-40 rounded border border-slate-300 px-2 py-1 font-mono text-sm"
+                        aria-label="Monto aprobado"
                       />
-                    </div>
-                  ) : null}
-                  <ul className="mt-3 grid gap-1 sm:grid-cols-2">
-                    {h.checklistDocumental.map((c) => (
-                      <li key={c.item} className="text-xs text-slate-600">
-                        • {c.item}
-                      </li>
-                    ))}
-                  </ul>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>
-            <p
-              className={[
-                'text-xs',
-                porcentajeHitos === 100 ? 'text-emerald-700' : 'text-amber-700',
-              ].join(' ')}
-            >
-              Suma de hitos: {porcentajeHitos}% (debe ser 100%)
-            </p>
+
+            {servicios.length > 0 ? (
+              <aside className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <p className="font-medium text-slate-900">Evidencias por desembolso (servicios en paso 4)</p>
+                <p className="mt-1">
+                  {servicios.map((s) => TIPOS_SERVICIO_LABEL[s]).join(' · ')}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Puede ajustar los servicios en el paso «Servicios HBI»; el checklist de cada hito se
+                  actualizará sin perder porcentajes ni fechas.
+                </p>
+              </aside>
+            ) : null}
+
+            <DesembolsosEvidenciaPanel
+              hitos={hitos}
+              montoTotal={montoTotal}
+              moneda={moneda}
+              titulo="Vista previa — evidencia del plan de desembolsos"
+              compacto
+            />
           </section>
         ) : null}
 
         {paso === 4 ? (
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900">4 · Anexos HBI (servicios contratados)</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              4 · Servicios HBI (Anexos 1, 2 y 3)
+            </h2>
             <p className="text-sm text-slate-600">
-              Seleccione qué servicios administrará HBI como agente de financiación. Cada Anexo
-              activa actividades y checklist en el motor operativo (Fase 4).
+              Contrate uno o más servicios. En Fase 4 (motor operativo) cada desembolso exigirá
+              evidencias y checklist según los anexos activos.
             </p>
-            {GUIA_ANEXOS.map((g) => {
-              const Icon = ICONO_ANEXO[g.codigo];
-              const activo = servicios.includes(g.codigo);
-              const expandido = anexoExpandido === g.codigo;
-              return (
-                <article
-                  key={g.codigo}
-                  className={[
-                    'rounded-xl border transition',
-                    activo
-                      ? 'border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-accent)]/20'
-                      : 'border-slate-200 bg-white',
-                  ].join(' ')}
-                >
-                  <div className="flex items-start gap-3 p-4">
-                    <input
-                      type="checkbox"
-                      checked={activo}
-                      onChange={() => toggleServicio(g.codigo)}
-                      className="mt-1 rounded border-slate-300"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-5 w-5 text-[var(--color-brand-primary)]" />
-                        <p className="font-semibold text-slate-900">{g.titulo}</p>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-600">{g.resumen}</p>
-                      <button
-                        type="button"
-                        onClick={() => setAnexoExpandido(expandido ? null : g.codigo)}
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--color-brand-primary)]"
-                      >
-                        {expandido ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        {expandido ? 'Ocultar detalle' : 'Ver responsabilidades y documentos'}
-                      </button>
-                      {expandido ? (
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-slate-500">
-                              Responsabilidades
-                            </p>
-                            <ul className="mt-1 space-y-1">
-                              {g.responsabilidades.map((r) => (
-                                <li key={r} className="text-xs text-slate-700">
-                                  ✓ {r}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-slate-500">
-                              Documentos clave
-                            </p>
-                            <ul className="mt-1 space-y-1">
-                              {g.documentosClave.map((d) => (
-                                <li key={d} className="text-xs text-slate-700">
-                                  📄 {d}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            <ServiciosHbiContratacion
+              servicios={servicios}
+              onToggle={toggleServicio}
+              onSeleccionarTodos={seleccionarTodosServicios}
+              anexoExpandido={anexoExpandido}
+              onToggleExpandir={setAnexoExpandido}
+            />
           </section>
         ) : null}
 
@@ -671,19 +727,24 @@ export function NuevaOperacionWizard() {
                   {formatearMonto(montoTotal, moneda)}
                 </dd>
               </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <dt className="text-xs text-slate-500">Hitos aprobados</dt>
-                <dd className="font-mono font-semibold text-emerald-700">
-                  {formatearMonto(montoAprobadoTotal, moneda)}
+              <div className="rounded-lg bg-slate-50 p-3 sm:col-span-2">
+                <dt className="text-xs text-slate-500">Plan de desembolsos ({hitos.length})</dt>
+                <dd className="mt-1 space-y-1">
+                  {hitos.map((h) => (
+                    <p key={h.id} className="text-sm text-slate-800">
+                      {h.id} · {new Date(h.fechaObjetivo).toLocaleDateString('es-CO')} — {h.porcentaje}% (
+                      {formatearMonto(h.monto, moneda)}) — {h.nombre}
+                    </p>
+                  ))}
                 </dd>
               </div>
-              <div className="rounded-lg bg-slate-50 p-3 sm:col-span-2">
-                <dt className="text-xs text-slate-500">Anexos HBI</dt>
-                <dd className="mt-1 flex flex-wrap gap-2">
+              <div className="rounded-lg bg-indigo-50 p-3 sm:col-span-2">
+                <dt className="text-xs text-indigo-600">{AGENTE_FINANCIACION_HBI}</dt>
+                <dd className="mt-2 flex flex-wrap gap-2">
                   {servicios.map((s) => (
                     <span
                       key={s}
-                      className="rounded-full bg-[var(--color-brand-primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--color-brand-primary)]"
+                      className="rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-medium text-white"
                     >
                       {TIPOS_SERVICIO_LABEL[s]}
                     </span>

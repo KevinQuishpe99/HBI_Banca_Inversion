@@ -14,6 +14,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { useState } from 'react';
+import { TrazabilidadExpedientePanel } from '@/components/hbi/TrazabilidadExpedientePanel';
 
 const ICONOS: Record<TipoEventoTrazabilidad, typeof History> = {
   HISTORIAL: History,
@@ -33,9 +34,12 @@ const COLORES: Record<TipoEventoTrazabilidad, string> = {
   CAMBIO_FASE: 'border-amber-200 bg-amber-50',
 };
 
-type Props = { operacionId: string };
+type Props = {
+  operacionId: string;
+  expediente?: import('@/types/hbi/operacion.types').OperacionVista360;
+};
 
-export function TrazabilidadTimeline({ operacionId }: Props) {
+export function TrazabilidadTimeline({ operacionId, expediente }: Props) {
   const { data, isLoading, error } = useHbiTrazabilidad(operacionId);
   const [filtro, setFiltro] = useState<TipoEventoTrazabilidad | 'TODOS'>('TODOS');
 
@@ -57,7 +61,11 @@ export function TrazabilidadTimeline({ operacionId }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {expediente ? (
+        <TrazabilidadExpedientePanel data={expediente} />
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-slate-500" />
         <select
@@ -109,11 +117,20 @@ export function TrazabilidadTimeline({ operacionId }: Props) {
                       {TIPOS_SERVICIO_LABEL[ev.tipoServicio]}
                     </span>
                   ) : null}
-                  {ev.tipo === 'DOCUMENTO' && ev.detalle?.hashContenido ? (
-                    <p className="mt-2 font-mono text-xs text-slate-500">
-                      Huella: {String(ev.detalle.hashContenido)} · v
-                      {String(ev.detalle.version ?? 1)}
-                    </p>
+                  {ev.tipo === 'DOCUMENTO' ? (
+                    <div className="mt-2 space-y-0.5 text-xs text-slate-500">
+                      {ev.detalle?.subidoPor ? (
+                        <p>
+                          Subido por: <strong>{String(ev.detalle.subidoPor)}</strong>
+                        </p>
+                      ) : null}
+                      {ev.detalle?.hashContenido ? (
+                        <p className="font-mono">
+                          Huella: {String(ev.detalle.hashContenido)} · v
+                          {String(ev.detalle.version ?? 1)}
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               </li>

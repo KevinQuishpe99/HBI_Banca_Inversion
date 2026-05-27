@@ -1,21 +1,27 @@
 'use client';
 
-import type { OperacionVista360 } from '@/types/hbi/operacion.types';
+import { useState } from 'react';
+import type { CorreoOperacion, DocumentoContractual, InfoProyectoHbi, OperacionVista360 } from '@/types/hbi/operacion.types';
 import { TIPOS_SERVICIO_LABEL } from '@/types/hbi/operacion.types';
 import { EstructuraFinancieraCard } from '@/components/hbi/EstructuraFinancieraCard';
-import { FileText, Mail, ListChecks, History, Calendar, Users, Bell } from 'lucide-react';
+import { VisorDocumentoModal } from '@/components/hbi/VisorDocumentoModal';
+import { FileText, Mail, ListChecks, History, Calendar, Users, Bell, Eye } from 'lucide-react';
 
 type Props = {
   data: OperacionVista360;
 };
 
 export function Vista360Panel({ data }: Props) {
+  const [docSel, setDocSel] = useState<DocumentoContractual | null>(null);
+  const [correoSel, setCorreoSel] = useState<CorreoOperacion | null>(null);
   const exp = data.expediente;
   const alertas = (exp?.alertas ?? []) as Array<{ tipo?: string; mensaje?: string; severidad?: string }>;
   const comunicaciones = exp?.comunicacionesResumen as Record<string, unknown> | undefined;
   const resumen = exp?.resumenContractual as Record<string, unknown> | undefined;
+  const infoProyecto = data.metadata?.infoProyecto as InfoProyectoHbi | undefined;
 
   return (
+    <>
     <div className="grid gap-6 lg:grid-cols-2">
       <EstructuraFinancieraCard metadata={data.metadata} />
 
@@ -48,11 +54,21 @@ export function Vista360Panel({ data }: Props) {
         </h3>
         <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
           {data.documentos.map((d) => (
-            <li key={d.id} className="flex justify-between gap-2 text-sm">
+            <li key={d.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="truncate text-slate-800">{d.nombreArchivo}</span>
-              <span className="shrink-0 rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-                {d.tipoDocumento}
-              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+                  {d.tipoDocumento}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDocSel(d)}
+                  className="rounded p-1 text-blue-700 hover:bg-blue-50"
+                  title="Ver documento"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -70,14 +86,29 @@ export function Vista360Panel({ data }: Props) {
         ) : null}
         <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto">
           {data.correos.slice(0, 10).map((c) => (
-            <li key={c.id} className="text-sm">
-              <span className="font-medium">{c.asunto}</span>
-              <span className="block text-xs text-slate-500">
-                {c.origen} · {c.prioridad}
-              </span>
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => setCorreoSel(c)}
+                className="w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-indigo-50"
+              >
+                <span className="font-medium">{c.asunto}</span>
+                <span className="block text-xs text-slate-500">
+                  {c.origen} · {c.prioridad}
+                </span>
+              </button>
             </li>
           ))}
         </ul>
+        {correoSel ? (
+          <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 text-sm">
+            <p className="font-medium text-slate-900">{correoSel.asunto}</p>
+            <p className="text-xs text-slate-500">{correoSel.remitente}</p>
+            <p className="mt-2 whitespace-pre-wrap text-slate-700">
+              {correoSel.cuerpoResumen ?? 'Sin cuerpo.'}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -99,13 +130,32 @@ export function Vista360Panel({ data }: Props) {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="flex items-center gap-2 font-semibold text-slate-900">
           <Users className="h-5 w-5 text-slate-600" />
-          Responsables
+          Proyecto y responsable
         </h3>
-        <p className="mt-2 text-sm text-slate-600">
-          {data.responsableId
-            ? `Responsable asignado (ID: ${data.responsableId.slice(0, 8)}…)`
-            : 'Sin responsable asignado — recomendado en Fase 3.'}
-        </p>
+        {infoProyecto?.responsableNombre ? (
+          <dl className="mt-2 space-y-1 text-sm">
+            <div>
+              <dt className="text-xs text-slate-500">PMO / responsable</dt>
+              <dd className="font-medium">{infoProyecto.responsableNombre}</dd>
+            </div>
+            {infoProyecto.sector ? (
+              <div>
+                <dt className="text-xs text-slate-500">Sector</dt>
+                <dd>{infoProyecto.sector}</dd>
+              </div>
+            ) : null}
+            {infoProyecto.viabilidad ? (
+              <div>
+                <dt className="text-xs text-slate-500">Viabilidad</dt>
+                <dd className="font-medium text-teal-800">{infoProyecto.viabilidad.replace(/_/g, ' ')}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : (
+          <p className="mt-2 text-sm text-slate-600">
+            Complete la ficha en Fase 2 (Correos) para evaluar viabilidad del proyecto.
+          </p>
+        )}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
@@ -162,5 +212,7 @@ export function Vista360Panel({ data }: Props) {
         </ul>
       </section>
     </div>
+    <VisorDocumentoModal documento={docSel} onCerrar={() => setDocSel(null)} />
+    </>
   );
 }

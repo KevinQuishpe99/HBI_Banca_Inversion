@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { FaseWorkflowHbi, OperacionVista360 } from '@/types/hbi/operacion.types';
+import type { FaseWorkflowHbi, InfoProyectoHbi, OperacionVista360 } from '@/types/hbi/operacion.types';
 import { Fase1DocumentosPanel } from '@/components/hbi/Fase1DocumentosPanel';
 import { CorreosBandejaCompleta } from '@/components/hbi/CorreosBandejaCompleta';
 import { TrazabilidadTimeline } from '@/components/hbi/TrazabilidadTimeline';
@@ -11,6 +11,9 @@ import { CovenantsPanel } from '@/components/hbi/CovenantsPanel';
 import { ComiteCreditoPanel } from '@/components/hbi/ComiteCreditoPanel';
 import { CalendarioObligacionesPanel } from '@/components/hbi/CalendarioObligacionesPanel';
 import { ReporteSindicatoPanel } from '@/components/hbi/ReporteSindicatoPanel';
+import { SimuladorFinancieroPanel } from '@/components/hbi/SimuladorFinancieroPanel';
+import { GestionDesembolsosPanel } from '@/components/hbi/GestionDesembolsosPanel';
+import type { EstructuraFinancieraHbi } from '@/types/hbi/cliente.types';
 
 type TabId =
   | FaseWorkflowHbi
@@ -19,7 +22,9 @@ type TabId =
   | 'COVENANTS'
   | 'COMITE'
   | 'OBLIGACIONES'
-  | 'REPORTE_SINDICATO';
+  | 'REPORTE_SINDICATO'
+  | 'SIMULADOR'
+  | 'DESEMBOLSOS';
 
 const TABS_CORE: Array<{ id: TabId; label: string }> = [
   { id: 'FASE_1_CONTRATOS', label: '1 · Contratos' },
@@ -35,6 +40,8 @@ const TABS_IB: Array<{ id: TabId; label: string }> = [
   { id: 'COMITE', label: 'Comité crédito' },
   { id: 'OBLIGACIONES', label: 'Calendario' },
   { id: 'REPORTE_SINDICATO', label: 'Reporte sindicado' },
+  { id: 'SIMULADOR', label: 'Simulador Anexo 3' },
+  { id: 'DESEMBOLSOS', label: 'Desembolsos' },
 ];
 
 type Props = {
@@ -77,9 +84,15 @@ export function OperacionWorkflowTabs({ data, faseSugerida }: Props) {
 
       {tab === 'FASE_1_CONTRATOS' ? <Fase1DocumentosPanel operacionId={data.id} /> : null}
       {tab === 'FASE_2_CORREOS' ? (
-        <CorreosBandejaCompleta operacionId={data.id} codigoOperacion={data.codigoOperacion} />
+        <CorreosBandejaCompleta
+          operacionId={data.id}
+          codigoOperacion={data.codigoOperacion}
+          infoProyecto={data.metadata?.infoProyecto as InfoProyectoHbi | undefined}
+        />
       ) : null}
-      {tab === 'TRAZABILIDAD' ? <TrazabilidadTimeline operacionId={data.id} /> : null}
+      {tab === 'TRAZABILIDAD' ? (
+        <TrazabilidadTimeline operacionId={data.id} expediente={data} />
+      ) : null}
       {tab === 'FASE_3_EXPEDIENTE' || tab === 'VISTA_360' ? <Vista360Panel data={data} /> : null}
       {tab === 'FASE_4_SEGUIMIENTO' ? (
         <Fase4ActividadesPanel operacionId={data.id} serviciosActivos={data.serviciosActivos} />
@@ -89,6 +102,27 @@ export function OperacionWorkflowTabs({ data, faseSugerida }: Props) {
       {tab === 'OBLIGACIONES' ? <CalendarioObligacionesPanel operacionId={data.id} /> : null}
       {tab === 'REPORTE_SINDICATO' ? (
         <ReporteSindicatoPanel operacionId={data.id} codigoOperacion={data.codigoOperacion} />
+      ) : null}
+      {tab === 'SIMULADOR' ? (
+        <SimuladorFinancieroPanel
+          operacionId={data.id}
+          codigoOperacion={data.codigoOperacion}
+          metadata={data.metadata}
+        />
+      ) : null}
+      {tab === 'DESEMBOLSOS' ? (
+        <GestionDesembolsosPanel
+          operacionId={data.id}
+          montoTotal={
+            (data.metadata?.estructuraFinanciera as EstructuraFinancieraHbi | undefined)?.montoTotal ??
+            0
+          }
+          moneda={
+            (data.metadata?.estructuraFinanciera as EstructuraFinancieraHbi | undefined)?.moneda ??
+            'USD'
+          }
+          serviciosActivos={data.serviciosActivos}
+        />
       ) : null}
     </div>
   );

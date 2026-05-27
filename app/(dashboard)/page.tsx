@@ -8,6 +8,7 @@ import { OperacionListItem } from '@/components/hbi/OperacionListItem';
 import { MockModeBanner } from '@/components/hbi/MockModeBanner';
 import { ServiciosHbiInfoCard } from '@/components/hbi/ServiciosHbiInfoCard';
 import { DashboardEjecutivoHbi } from '@/components/hbi/DashboardEjecutivoHbi';
+import { GuiaDemoHbi } from '@/components/hbi/GuiaDemoHbi';
 
 const FASE_ICONS = [FileText, Mail, FolderOpen, ListChecks] as const;
 
@@ -43,6 +44,8 @@ export default function DashboardPage() {
       </div>
 
       <DashboardEjecutivoHbi />
+
+      <GuiaDemoHbi />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {porFase.map((fase, i) => {

@@ -15,9 +15,13 @@ import type {
   OperacionVista360,
   OrigenCorreoHbi,
   PrioridadCorreoHbi,
+  InfoProyectoHbi,
+  PartesCreditoHbi,
+  RegistroFaseHbi,
   TipoDocumentoContractual,
   TipoServicioHbi,
 } from '@/types/hbi/operacion.types';
+import { archivoADatosPreview } from '@/lib/hbi/documento-preview';
 import type { HitoDesembolsoHbi } from '@/types/hbi/cliente.types';
 
 const MOCK = esModoDemo();
@@ -220,12 +224,23 @@ export function useAvanzarFaseHbi(operacionId: string) {
 export function useSubirDocumentoHbi(operacionId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (formData: FormData) => {
+    mutationFn: async (formData: FormData) => {
       if (MOCK) {
         const file = formData.get('file');
         const nombre = file instanceof File ? file.name : 'documento.pdf';
         const tipo = formData.get('tipoDocumento') as TipoDocumentoContractual | null;
-        return delay(MockHbiStore.subirDocumento(operacionId, nombre, tipo ?? undefined));
+        let extras: { previewDataUrl?: string; mimeType?: string; tamanoBytes?: number } | undefined;
+        if (file instanceof File) {
+          const preview = await archivoADatosPreview(file);
+          extras = {
+            previewDataUrl: preview.previewDataUrl || undefined,
+            mimeType: preview.mimeType,
+            tamanoBytes: preview.tamanoBytes,
+          };
+        }
+        return delay(
+          MockHbiStore.subirDocumento(operacionId, nombre, tipo ?? undefined, extras)
+        );
       }
       return fetchJson<DocumentoContractual>(`/api/hbi/operaciones/${operacionId}/documentos`, {
         method: 'POST',
@@ -234,6 +249,42 @@ export function useSubirDocumentoHbi(operacionId: string) {
     },
     onSuccess: () => invalidateOperacion(qc, operacionId),
     meta: { lockMessage: 'Registrando documento…' },
+  });
+}
+
+export function useActualizarTrazabilidadOperacionHbi(operacionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { partesCredito?: PartesCreditoHbi; fasesHistorial?: RegistroFaseHbi[] }) => {
+      if (MOCK) {
+        return delay(MockHbiStore.actualizarTrazabilidadOperacion(operacionId, body));
+      }
+      return fetchJson<OperacionCredito>(`/api/hbi/operaciones/${operacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => invalidateOperacion(qc, operacionId),
+    meta: { lockMessage: 'Guardando trazabilidad…' },
+  });
+}
+
+export function useActualizarInfoProyectoHbi(operacionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: InfoProyectoHbi) => {
+      if (MOCK) {
+        return delay(MockHbiStore.actualizarInfoProyecto(operacionId, body));
+      }
+      return fetchJson<OperacionCredito>(`/api/hbi/operaciones/${operacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ infoProyecto: body }),
+      });
+    },
+    onSuccess: () => invalidateOperacion(qc, operacionId),
+    meta: { lockMessage: 'Guardando ficha de proyecto…' },
   });
 }
 

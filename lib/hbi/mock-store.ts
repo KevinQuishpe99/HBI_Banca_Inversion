@@ -9,6 +9,11 @@ import {
   savePersistedMockSnapshot,
 } from '@/lib/hbi/mock-persistence';
 import { extraerDatosClaveDocumento } from '@/lib/hbi/extract-document-metadata';
+import {
+  crearHistorialInicial,
+  sincronizarHistorialAlAvanzar,
+  tituloFase,
+} from '@/lib/hbi/fases-historial';
 import { detectarOrigenCorreo, detectarPrioridadCorreo } from '@/lib/hbi/detect-email-origin';
 import type {
   ActividadServicio,
@@ -17,6 +22,9 @@ import type {
   DocumentoContractual,
   EstadoIntegralHbi,
   EventoTrazabilidad,
+  InfoProyectoHbi,
+  PartesCreditoHbi,
+  RegistroFaseHbi,
   ExpedienteMaestro,
   FaseWorkflowHbi,
   OperacionCredito,
@@ -26,7 +34,13 @@ import type {
   TipoDocumentoContractual,
   TipoServicioHbi,
 } from '@/types/hbi/operacion.types';
-import type { HitoDesembolsoHbi } from '@/types/hbi/cliente.types';
+import type { HitoDesembolsoHbi, EvidenciaDesembolsoHbi } from '@/types/hbi/cliente.types';
+import {
+  calcularAvanceDesembolsos,
+  hitosNecesitanMigracion,
+  normalizarHitosOperacion,
+  puedeEjecutarDesembolso,
+} from '@/lib/hbi/desembolsos-domain';
 import {
   generarComiteOperacion,
   generarCovenantsOperacion,
@@ -90,6 +104,7 @@ function ensureHydrated(): void {
     store = snap.store as Store;
     seq = typeof snap.seq === 'number' ? snap.seq : seq;
     migrarIbAvanzadoSiFalta();
+    migrarHitosDesembolsoSiFalta();
   }
 }
 
@@ -146,6 +161,18 @@ function migrarIbAvanzadoSiFalta(): void {
   for (const op of store.operaciones) {
     if (store.covenants.some((c) => c.operacionId === op.id)) continue;
     poblarIbAvanzadoOperacion(op, store);
+    changed = true;
+  }
+  if (changed) persist();
+}
+
+function migrarHitosDesembolsoSiFalta(): void {
+  let changed = false;
+  for (const op of store.operaciones) {
+    const hitos = op.metadata?.hitosDesembolso as HitoDesembolsoHbi[] | undefined;
+    if (!hitos?.length || !hitosNecesitanMigracion(hitos)) continue;
+    op.metadata.hitosDesembolso = normalizarHitosOperacion(hitos);
+    syncAvanceProyecto(op);
     changed = true;
   }
   if (changed) persist();
@@ -296,55 +323,237 @@ function seedStore(): Store {
     serviciosActivos: ['ANEXO_1_ADMINISTRATIVO', 'ANEXO_2_GARANTIAS', 'ANEXO_3_CALCULO'],
     creadoPor: 'mock-user-1',
     metadata: {
+      tipoCredito: 'PROJECT_FINANCE',
+      infoProyecto: {
+        responsableNombre: 'Ing. Ana Torres R.',
+        responsableCargo: 'Directora PMO — Concesionaria Metro Verde',
+        responsableEmail: 'ana.torres@metroverde.com.ec',
+        responsableTelefono: '+593 99 123 4567',
+        sector: 'Infraestructura de transporte',
+        ubicacion: 'Quito — Tramo Norte (22 km)',
+        descripcionProyecto:
+          'Construcción y operación de línea BRT norte. Fuente de repago: tarifa integrada y subsidio municipal condicionado. Plazo 18 años.',
+        viabilidad: 'VIABLE',
+        notasViabilidad:
+          'Comité aprobó con covenant de DSCR mínimo 1.25x y pólizas todo riesgo durante construcción.',
+        actualizadoEn: haceDias(12),
+      } satisfies InfoProyectoHbi,
+      partesCredito: {
+        otorgadoPor: 'Banco Andino Internacional (banco agente del sindicato)',
+        fechaAperturaCredito: haceDias(40),
+        asesor: {
+          nombre: 'Carlos Méndez L.',
+          entidad: 'HBI — Banca de Inversión',
+          email: 'c.mendez@hbi-demo.com',
+          telefono: '+593 2 234 5600',
+        },
+      } satisfies PartesCreditoHbi,
+      fasesHistorial: [
+        {
+          fase: 'FASE_1_CONTRATOS',
+          titulo: tituloFase('FASE_1_CONTRATOS'),
+          abiertaEn: haceDias(40),
+          cerradaEn: haceDias(32),
+          abiertaPor: 'María González',
+        },
+        {
+          fase: 'FASE_2_CORREOS',
+          titulo: tituloFase('FASE_2_CORREOS'),
+          abiertaEn: haceDias(32),
+          cerradaEn: haceDias(24),
+          abiertaPor: 'María González',
+        },
+        {
+          fase: 'FASE_3_EXPEDIENTE',
+          titulo: tituloFase('FASE_3_EXPEDIENTE'),
+          abiertaEn: haceDias(24),
+          cerradaEn: haceDias(14),
+          abiertaPor: 'María González',
+        },
+        {
+          fase: 'FASE_4_SEGUIMIENTO',
+          titulo: tituloFase('FASE_4_SEGUIMIENTO'),
+          abiertaEn: haceDias(14),
+          abiertaPor: 'María González',
+        },
+      ] satisfies RegistroFaseHbi[],
+      estructuraFinanciera: {
+        montoTotal: 220_000_000,
+        moneda: 'USD',
+        montoComprometidoTotal: 220_000_000,
+        acreedores: [
+          { id: 'acr-1', razonSocial: 'Banco Andino Internacional', porcentaje: 40, montoComprometido: 88_000_000 },
+          { id: 'acr-2', razonSocial: 'Fondo Infra Latam III', porcentaje: 35, montoComprometido: 77_000_000 },
+          { id: 'acr-3', razonSocial: 'Multilateral de Desarrollo', porcentaje: 25, montoComprometido: 55_000_000 },
+        ],
+      },
       hitosDesembolso: [
         {
           id: 'H1',
           nombre: 'Cierre financiero inicial',
           porcentaje: 20,
+          monto: 44_000_000,
+          montoAprobado: 44_000_000,
+          aprobado: true,
           estado: 'COMPLETADO',
           fechaObjetivo: haceDias(25),
+          descripcionFase:
+            'Cierre financiero del crédito sindicado y primer giro tras firma de contratos y acta de comité.',
+          faseProyecto: 'PRECONSTRUCCION',
+          fechaDesembolsoEjecutado: haceDias(24),
+          evidencias: [
+            {
+              id: 'ev-op7-h1-a1',
+              nombreArchivo: 'Solicitud_desembolso_H1_Anexo1.pdf',
+              anexoRequerido: 'ANEXO_1',
+              descripcion: 'Solicitud formal Agente Administrativo',
+              subidoEn: haceDias(26),
+            },
+            {
+              id: 'ev-op7-h1-a2',
+              nombreArchivo: 'Certificacion_garantias_H1.pdf',
+              anexoRequerido: 'ANEXO_2',
+              descripcion: 'Pólizas vigentes — Agente de Garantías',
+              subidoEn: haceDias(26),
+            },
+            {
+              id: 'ev-op7-h1-a3',
+              nombreArchivo: 'Cronograma_certificacion_H1.pdf',
+              anexoRequerido: 'ANEXO_3',
+              descripcion: 'Certificación de saldos — Agente de Cálculo',
+              subidoEn: haceDias(25),
+            },
+          ],
           checklistDocumental: [
-            { item: 'Contrato marco firmado', cumplido: true },
-            { item: 'Anexo 1 validado', cumplido: true },
-            { item: 'Certificado fiduciario', cumplido: true },
+            { item: 'Contrato marco y anexos vigentes', cumplido: true, anexo: 'HBI' },
+            { item: 'Acta de comité de crédito', cumplido: true, anexo: 'HBI' },
+            {
+              item: 'Solicitud formal desembolso 1 (Agente Administrativo)',
+              cumplido: true,
+              anexo: 'ANEXO_1',
+              requiereArchivo: true,
+            },
+            {
+              item: 'Certificación garantías desembolso 1',
+              cumplido: true,
+              anexo: 'ANEXO_2',
+              requiereArchivo: true,
+            },
+            {
+              item: 'Cronograma y saldos desembolso 1',
+              cumplido: true,
+              anexo: 'ANEXO_3',
+              requiereArchivo: true,
+            },
           ],
         },
         {
           id: 'H2',
           nombre: 'Inicio de obra civil',
           porcentaje: 35,
+          monto: 77_000_000,
+          montoAprobado: 0,
+          aprobado: false,
           estado: 'EN_REVISION',
-          fechaObjetivo: haceDias(5),
+          fechaObjetivo: haceDias(-7),
+          descripcionFase:
+            'Inicio de obra civil: acta de inicio, interventoría y certificación Anexo 2 para habilitar giro.',
+          faseProyecto: 'CONSTRUCCION_INICIO',
+          fechaDesembolsoEjecutado: null,
+          evidencias: [
+            {
+              id: 'ev-op7-h2-a1',
+              nombreArchivo: 'Solicitud_desembolso_H2.pdf',
+              anexoRequerido: 'ANEXO_1',
+              subidoEn: haceDias(3),
+            },
+            {
+              id: 'ev-op7-h2-a2',
+              nombreArchivo: 'Polizas_obra_H2.pdf',
+              anexoRequerido: 'ANEXO_2',
+              subidoEn: haceDias(2),
+            },
+          ],
           checklistDocumental: [
-            { item: 'Acta de inicio de obra', cumplido: true },
-            { item: 'Pólizas vigentes (Anexo 2)', cumplido: true },
-            { item: 'Cronograma recalculado (Anexo 3)', cumplido: false },
+            { item: 'Contrato marco y anexos vigentes', cumplido: true, anexo: 'HBI' },
+            { item: 'Acta de comité de crédito H2', cumplido: true, anexo: 'HBI' },
+            {
+              item: 'Solicitud formal desembolso 2 (Agente Administrativo)',
+              cumplido: true,
+              anexo: 'ANEXO_1',
+              requiereArchivo: true,
+            },
+            {
+              item: 'Certificación garantías desembolso 2',
+              cumplido: true,
+              anexo: 'ANEXO_2',
+              requiereArchivo: true,
+            },
+            {
+              item: 'Cronograma recalculado desembolso 2 (Anexo 3)',
+              cumplido: false,
+              anexo: 'ANEXO_3',
+              requiereArchivo: true,
+            },
           ],
         },
         {
           id: 'H3',
           nombre: 'Avance 60% del proyecto',
           porcentaje: 25,
+          monto: 55_000_000,
+          montoAprobado: 0,
+          aprobado: false,
           estado: 'PENDIENTE',
-          fechaObjetivo: haceDias(-20),
+          fechaObjetivo: haceDias(-90),
+          descripcionFase: 'Avance intermedio 60%: informe de interventoría y modelo financiero actualizado.',
+          faseProyecto: 'CONSTRUCCION_AVANCE',
+          fechaDesembolsoEjecutado: null,
+          evidencias: [],
           checklistDocumental: [
-            { item: 'Informe técnico interventoría', cumplido: false },
-            { item: 'Certificación de garantías', cumplido: false },
-            { item: 'Modelo financiero actualizado', cumplido: false },
+            { item: 'Acta de comité H3', cumplido: false, anexo: 'HBI' },
+            {
+              item: 'Solicitud formal desembolso 3',
+              cumplido: false,
+              anexo: 'ANEXO_1',
+              requiereArchivo: true,
+            },
+            {
+              item: 'Certificación garantías H3',
+              cumplido: false,
+              anexo: 'ANEXO_2',
+              requiereArchivo: true,
+            },
+            {
+              item: 'Modelo financiero H3',
+              cumplido: false,
+              anexo: 'ANEXO_3',
+              requiereArchivo: true,
+            },
           ],
         },
         {
           id: 'H4',
           nombre: 'Puesta en operación',
           porcentaje: 20,
+          monto: 44_000_000,
+          montoAprobado: 0,
+          aprobado: false,
           estado: 'PENDIENTE',
-          fechaObjetivo: haceDias(-70),
+          fechaObjetivo: haceDias(-180),
+          descripcionFase: 'Puesta en operación comercial y desembolso final del facility.',
+          faseProyecto: 'OPERACION',
+          fechaDesembolsoEjecutado: null,
+          evidencias: [],
           checklistDocumental: [
-            { item: 'Acta de recibo final', cumplido: false },
-            { item: 'Liberación de retenciones', cumplido: false },
+            { item: 'Acta de recibo final', cumplido: false, anexo: 'HBI' },
+            { item: 'Liberación de retenciones', cumplido: false, anexo: 'HBI' },
           ],
         },
       ],
+      porcentajeDesembolsado: 20,
+      faseProyectoActual: 'CONSTRUCCION_INICIO',
+      hitoActivoId: 'H2',
     },
     alertasActivas: true,
     proximosPasos:
@@ -503,6 +712,8 @@ function seedStore(): Store {
       leido: true,
       recibidoEn: haceDias(20),
       direccion: 'RECIBIDO',
+      cuerpoResumen:
+        'Confirmamos el mandato de Agente Administrativo. Adjuntamos minuta de estructuración y lista de contactos del sindicado.',
     },
     {
       id: 'mock-cor-in-2',
@@ -514,6 +725,8 @@ function seedStore(): Store {
       leido: true,
       recibidoEn: haceDias(18),
       direccion: 'RECIBIDO',
+      cuerpoResumen:
+        'Enviamos estados financieros auditados y certificación de no adeudo tributario para el cierre de Fase 1.',
     },
     {
       id: 'mock-cor-in-3',
@@ -525,6 +738,8 @@ function seedStore(): Store {
       leido: false,
       recibidoEn: haceHoras(6),
       direccion: 'RECIBIDO',
+      cuerpoResumen:
+        'Solicitamos recalibrar la curva de amortización del año 4 y adjuntar sensibilidad de tasas. Favor respuesta antes del comité del viernes.',
     },
     {
       id: 'mock-cor-out-1',
@@ -1003,14 +1218,30 @@ function calcularEstado(op: OperacionCredito): EstadoIntegralHbi {
     puedeAvanzar = docs.length >= 1;
     if (!puedeAvanzar) mensajeAvance = 'Cargue al menos un documento en Fase 1.';
   } else if (siguiente === 'FASE_3_EXPEDIENTE') {
+    const info = op.metadata?.infoProyecto as InfoProyectoHbi | undefined;
+    const infoOk = Boolean(
+      info?.responsableNombre?.trim() &&
+        info.viabilidad &&
+        info.viabilidad !== 'EN_EVALUACION'
+    );
     requisitos.push({
       codigo: 'CORREO_MIN',
       descripcion: 'Al menos un correo en la bandeja',
-      cumplido: correos.filter((c) => c.direccion !== 'ENVIADO').length >= 1,
+      cumplido: correos.length >= 1,
       obligatorio: true,
     });
-    puedeAvanzar = correos.length >= 1;
-    if (!puedeAvanzar) mensajeAvance = 'Registre al menos un correo en Fase 2.';
+    requisitos.push({
+      codigo: 'INFO_PROYECTO',
+      descripcion: 'Ficha de proyecto y dictamen de viabilidad',
+      cumplido: infoOk,
+      obligatorio: true,
+    });
+    puedeAvanzar = correos.length >= 1 && infoOk;
+    if (!puedeAvanzar) {
+      mensajeAvance = !infoOk
+        ? 'Complete la ficha de proyecto y viabilidad en Fase 2.'
+        : 'Registre al menos un correo en Fase 2.';
+    }
   } else if (siguiente === 'FASE_4_SEGUIMIENTO') {
     requisitos.push({
       codigo: 'EXPEDIENTE',
@@ -1069,17 +1300,19 @@ function buildTrazabilidad(opId: string): EventoTrazabilidad[] {
 
   for (const d of docsDe(opId)) {
     const extra = d.datosExtraidos as { hashContenido?: string; version?: number };
+    const subidoPor = d.datosExtraidos.subidoPor as string | undefined;
     eventos.push({
       id: `ev-d-${d.id}`,
       tipo: 'DOCUMENTO',
       titulo: `Documento: ${d.nombreArchivo}`,
-      descripcion: `${d.tipoDocumento}${extra.hashContenido ? ` · ${extra.hashContenido}` : ''}`,
-      usuarioNombre: (d.datosExtraidos.subidoPor as string | undefined) ?? undefined,
+      descripcion: `${d.tipoDocumento} · subido por ${subidoPor ?? 'sistema'}`,
+      usuarioNombre: subidoPor,
       detalle: {
         tipoDocumento: d.tipoDocumento,
         hashContenido: extra.hashContenido,
         version: extra.version ?? 1,
         nombreArchivo: d.nombreArchivo,
+        subidoPor,
       },
       creadoEn: d.creadoEn,
     });
@@ -1218,6 +1451,7 @@ export const MockHbiStore = {
     const n = store.operaciones.length + 1;
     const hitos = input.hitosDesembolso ?? [];
     const estructura = input.estructuraFinanciera;
+    const creadoEn = new Date().toISOString();
     const op: OperacionCredito = {
       id: uid('mock-op'),
       codigoOperacion: `CRED-2026-${String(n).padStart(5, '0')}`,
@@ -1234,6 +1468,8 @@ export const MockHbiStore = {
         estructuraFinanciera: estructura,
         hitosDesembolso: hitos,
         anexosContratados: input.serviciosActivos,
+        fasesHistorial: crearHistorialInicial(creadoEn, actor()),
+        partesCredito: { fechaAperturaCredito: creadoEn } satisfies PartesCreditoHbi,
       },
       alertasActivas: hitos.some(
         (h) => h.estado === 'PENDIENTE_APROBACION' || h.estado === 'EN_REVISION'
@@ -1241,8 +1477,8 @@ export const MockHbiStore = {
       proximosPasos: estructura
         ? `Cargar paquete contractual. Monto total ${estructura.moneda} ${estructura.montoTotal.toLocaleString('es-CO')}. Aprobar checklist del hito ${(hitos[0] as { id?: string })?.id ?? 'H1'}.`
         : 'Cargar y clasificar el paquete contractual completo.',
-      creadoEn: new Date().toISOString(),
-      actualizadoEn: new Date().toISOString(),
+      creadoEn,
+      actualizadoEn: creadoEn,
     };
     store.operaciones.unshift(op);
     store.expedientes.push(crearExpediente(op, [], []));
@@ -1258,6 +1494,7 @@ export const MockHbiStore = {
       creadoEn: op.creadoEn,
     });
     poblarIbAvanzadoOperacion(op, store);
+    syncAvanceProyecto(op);
     persist();
     return op;
   },
@@ -1273,6 +1510,10 @@ export const MockHbiStore = {
     const anterior = op.faseActual;
     op.faseActual = nuevaFase;
     op.actualizadoEn = new Date().toISOString();
+    op.metadata = {
+      ...op.metadata,
+      fasesHistorial: sincronizarHistorialAlAvanzar(op.metadata, anterior, nuevaFase, actor()),
+    };
     if (nuevaFase === 'FASE_4_SEGUIMIENTO') {
       MockHbiStore.inicializarActividadesFase4(id);
     }
@@ -1316,7 +1557,12 @@ export const MockHbiStore = {
     persist();
   },
 
-  subirDocumento(operacionId: string, fileName: string, tipoManual?: TipoDocumentoContractual): DocumentoContractual {
+  subirDocumento(
+    operacionId: string,
+    fileName: string,
+    tipoManual?: TipoDocumentoContractual,
+    extras?: { previewDataUrl?: string; mimeType?: string; tamanoBytes?: number }
+  ): DocumentoContractual {
     touchStore();
     const clasif = tipoManual
       ? { tipo: tipoManual, confianza: 1 }
@@ -1328,11 +1574,15 @@ export const MockHbiStore = {
       operacionId,
       tipoDocumento: clasif.tipo,
       nombreArchivo: fileName,
+      mimeType: extras?.mimeType,
+      tamanoBytes: extras?.tamanoBytes,
+      blobUrl: extras?.previewDataUrl?.startsWith('blob:') ? extras.previewDataUrl : undefined,
       datosExtraidos: {
         ...extraerDatosClaveDocumento(fileName, clasif.tipo),
         hashContenido,
         version: 1,
         subidoPor: actor(),
+        ...(extras?.previewDataUrl ? { previewDataUrl: extras.previewDataUrl } : {}),
       },
       creadoEn: ahora,
     };
@@ -1381,6 +1631,64 @@ export const MockHbiStore = {
     });
     persist();
     return c;
+  },
+
+  actualizarTrazabilidadOperacion(
+    operacionId: string,
+    input: { partesCredito?: PartesCreditoHbi; fasesHistorial?: RegistroFaseHbi[] }
+  ): OperacionCredito {
+    touchStore();
+    const op = store.operaciones.find((o) => o.id === operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const ahora = new Date().toISOString();
+    if (input.partesCredito) {
+      op.metadata = { ...op.metadata, partesCredito: input.partesCredito };
+      store.historial.unshift({
+        id: uid('mock-h'),
+        operacionId,
+        tipoEvento: 'TRAZABILIDAD_CREDITO',
+        comentario: `Partes del crédito actualizadas — asesor: ${input.partesCredito.asesor?.nombre ?? '—'}`,
+        usuarioNombre: actor(),
+        creadoEn: ahora,
+      });
+    }
+    if (input.fasesHistorial) {
+      op.metadata = { ...op.metadata, fasesHistorial: input.fasesHistorial };
+      store.historial.unshift({
+        id: uid('mock-h'),
+        operacionId,
+        tipoEvento: 'TRAZABILIDAD_FASES',
+        comentario: 'Fechas de fases del workflow actualizadas',
+        usuarioNombre: actor(),
+        creadoEn: ahora,
+      });
+    }
+    op.actualizadoEn = ahora;
+    persist();
+    return op;
+  },
+
+  actualizarInfoProyecto(operacionId: string, info: InfoProyectoHbi): OperacionCredito {
+    touchStore();
+    const op = store.operaciones.find((o) => o.id === operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const actualizado = new Date().toISOString();
+    op.metadata = {
+      ...op.metadata,
+      infoProyecto: { ...info, actualizadoEn: actualizado },
+    };
+    op.actualizadoEn = actualizado;
+    op.proximosPasos = calcularEstado(op).proximosPasos;
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId,
+      tipoEvento: 'INFO_PROYECTO',
+      comentario: `Ficha de proyecto — viabilidad: ${info.viabilidad}`,
+      usuarioNombre: actor(),
+      creadoEn: actualizado,
+    });
+    persist();
+    return op;
   },
 
   enviarCorreo(
@@ -1642,7 +1950,181 @@ export const MockHbiStore = {
         .sort((a, b) => b.monto - a.monto),
     };
   },
+
+  obtenerHitos(operacionId: string): HitoDesembolsoHbi[] {
+    touchStore();
+    return hitosDe(operacionId);
+  },
+
+  actualizarHitoDesembolso(
+    operacionId: string,
+    hitoId: string,
+    patch: Partial<
+      Pick<
+        HitoDesembolsoHbi,
+        'nombre' | 'descripcionFase' | 'faseProyecto' | 'fechaObjetivo' | 'porcentaje'
+      >
+    >
+  ): HitoDesembolsoHbi {
+    touchStore();
+    const op = MockHbiStore.obtener(operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const hitos = hitosDe(operacionId);
+    const hito = hitos.find((h) => h.id === hitoId);
+    if (!hito) throw new Error('Desembolso no encontrado');
+    if (hito.estado === 'COMPLETADO') {
+      throw new Error('No se puede modificar un desembolso ya ejecutado');
+    }
+    const estructura = op.metadata?.estructuraFinanciera as { montoTotal?: number } | undefined;
+    const montoTotal = estructura?.montoTotal ?? hito.monto;
+    if (patch.porcentaje !== undefined) {
+      hito.porcentaje = patch.porcentaje;
+      hito.monto = Math.round((montoTotal * patch.porcentaje) / 100);
+    }
+    if (patch.nombre !== undefined) hito.nombre = patch.nombre;
+    if (patch.descripcionFase !== undefined) hito.descripcionFase = patch.descripcionFase;
+    if (patch.faseProyecto !== undefined) hito.faseProyecto = patch.faseProyecto;
+    if (patch.fechaObjetivo !== undefined) hito.fechaObjetivo = patch.fechaObjetivo;
+    const ahora = new Date().toISOString();
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId,
+      tipoEvento: 'DESEMBOLSO_ACTUALIZADO',
+      comentario: `${hito.id} actualizado — ${hito.porcentaje}% · ${hito.nombre}`,
+      usuarioNombre: actor(),
+      creadoEn: ahora,
+    });
+    op.actualizadoEn = ahora;
+    syncAvanceProyecto(op);
+    persist();
+    return hito;
+  },
+
+  marcarChecklistHito(
+    operacionId: string,
+    hitoId: string,
+    itemIndex: number,
+    cumplido: boolean
+  ): HitoDesembolsoHbi {
+    touchStore();
+    const op = MockHbiStore.obtener(operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const hitos = hitosDe(operacionId);
+    const hito = hitos.find((h) => h.id === hitoId);
+    if (!hito) throw new Error('Desembolso no encontrado');
+    const item = hito.checklistDocumental[itemIndex];
+    if (!item) throw new Error('Ítem de checklist no encontrado');
+    item.cumplido = cumplido;
+    op.actualizadoEn = new Date().toISOString();
+    persist();
+    return hito;
+  },
+
+  subirEvidenciaHito(
+    operacionId: string,
+    hitoId: string,
+    input: {
+      nombreArchivo: string;
+      anexoRequerido: EvidenciaDesembolsoHbi['anexoRequerido'];
+      descripcion?: string;
+    }
+  ): HitoDesembolsoHbi {
+    touchStore();
+    const op = MockHbiStore.obtener(operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const hitos = hitosDe(operacionId);
+    const hito = hitos.find((h) => h.id === hitoId);
+    if (!hito) throw new Error('Desembolso no encontrado');
+    if (hito.estado === 'COMPLETADO') {
+      throw new Error('El desembolso ya fue ejecutado');
+    }
+    const ahora = new Date().toISOString();
+    const ev: EvidenciaDesembolsoHbi = {
+      id: uid('ev-hito'),
+      nombreArchivo: input.nombreArchivo,
+      anexoRequerido: input.anexoRequerido,
+      descripcion: input.descripcion,
+      subidoEn: ahora,
+    };
+    hito.evidencias = [...(hito.evidencias ?? []), ev];
+    for (const c of hito.checklistDocumental) {
+      if (c.anexo === input.anexoRequerido && c.requiereArchivo) {
+        c.cumplido = true;
+      }
+    }
+    if (hito.estado === 'PENDIENTE') hito.estado = 'EN_REVISION';
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId,
+      tipoEvento: 'EVIDENCIA_DESEMBOLSO',
+      comentario: `${hito.id}: evidencia ${input.anexoRequerido} — ${input.nombreArchivo}`,
+      usuarioNombre: actor(),
+      creadoEn: ahora,
+    });
+    op.actualizadoEn = ahora;
+    syncAvanceProyecto(op);
+    persist();
+    return hito;
+  },
+
+  ejecutarDesembolso(operacionId: string, hitoId: string): HitoDesembolsoHbi {
+    touchStore();
+    const op = MockHbiStore.obtener(operacionId);
+    if (!op) throw new Error('Operación no encontrada');
+    const hitos = hitosDe(operacionId);
+    const validacion = puedeEjecutarDesembolso(hitos, hitoId, op.serviciosActivos);
+    if (!validacion.permitido) {
+      throw new Error(validacion.motivo ?? 'No se puede ejecutar el desembolso');
+    }
+    const hito = hitos.find((h) => h.id === hitoId)!;
+    const ahora = new Date().toISOString();
+    hito.estado = 'COMPLETADO';
+    hito.aprobado = true;
+    hito.montoAprobado = hito.monto;
+    hito.fechaDesembolsoEjecutado = ahora;
+    store.historial.unshift({
+      id: uid('mock-h'),
+      operacionId,
+      tipoEvento: 'DESEMBOLSO_EJECUTADO',
+      comentario: `${hito.id} ejecutado — ${hito.porcentaje}% (${hito.monto.toLocaleString('es-CO')}) · Fase: ${hito.faseProyecto ?? '—'}`,
+      usuarioNombre: actor(),
+      creadoEn: ahora,
+    });
+    op.actualizadoEn = ahora;
+    syncAvanceProyecto(op);
+    persist();
+    return hito;
+  },
 };
+
+function hitosDe(operacionId: string): HitoDesembolsoHbi[] {
+  const op = store.operaciones.find((o) => o.id === operacionId);
+  if (!op?.metadata) return [];
+  const raw = (op.metadata.hitosDesembolso ?? []) as HitoDesembolsoHbi[];
+  if (!raw.length) {
+    op.metadata.hitosDesembolso = [];
+    return [];
+  }
+  if (hitosNecesitanMigracion(raw)) {
+    op.metadata.hitosDesembolso = normalizarHitosOperacion(raw);
+    syncAvanceProyecto(op);
+    persist();
+  }
+  return normalizarHitosOperacion(op.metadata.hitosDesembolso as HitoDesembolsoHbi[]);
+}
+
+function syncAvanceProyecto(op: OperacionCredito): void {
+  const hitos = hitosDe(op.id);
+  if (!hitos.length) return;
+  const avance = calcularAvanceDesembolsos(hitos);
+  op.metadata.porcentajeDesembolsado = avance.porcentajeEjecutado;
+  op.metadata.faseProyectoActual = avance.faseActual;
+  op.metadata.hitoActivoId = avance.hitoActivo?.id;
+  op.proximosPasos =
+    avance.porcentajeEjecutado >= 100
+      ? 'Crédito desembolsado en su totalidad.'
+      : `Completar evidencias de ${avance.hitoActivo?.id ?? 'H?'} (${avance.hitoActivo?.nombre}) para habilitar desembolso · ${avance.porcentajeEjecutado}% del crédito ya ejecutado.`;
+}
 
 function sincronizarHitoAprobado(item: ItemComiteCredito): void {
   if (!item.hitoId) return;

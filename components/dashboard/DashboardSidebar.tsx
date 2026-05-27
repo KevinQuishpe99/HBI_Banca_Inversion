@@ -141,10 +141,10 @@ export function DashboardSidebar({
                   href="/pipeline"
                   onClick={onCloseMobile}
                   className={navItemClass(isPathActive('/pipeline'))}
-                  title="Pipeline comercial"
+                  title="Kanban por fase"
                 >
                   <Kanban className="h-5 w-5 flex-shrink-0 text-violet-600 group-hover:text-violet-700" />
-                  <span className={`${labelHidden} font-medium transition-opacity`}>Pipeline</span>
+                  <span className={`${labelHidden} font-medium transition-opacity`}>Kanban</span>
                 </Link>
                 <Link
                   href="/cartera"

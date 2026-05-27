@@ -2,10 +2,10 @@
  * Persistencia del store HBI en localStorage (caché del navegador) para el demo en Vercel.
  */
 
-const STORAGE_KEY = 'hbi-demo-store-v1';
+const STORAGE_KEY = 'hbi-demo-store-v2';
 
 export type PersistedMockSnapshot = {
-  version: 1;
+  version: 2;
   seq: number;
   store: unknown;
   savedAt: string;
@@ -17,7 +17,7 @@ export function loadPersistedMockSnapshot(): PersistedMockSnapshot | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedMockSnapshot;
-    if (parsed?.version !== 1 || !parsed.store) return null;
+    if (parsed?.version !== 2 || !parsed.store) return null;
     return parsed;
   } catch {
     return null;
@@ -28,7 +28,7 @@ export function savePersistedMockSnapshot(seq: number, store: unknown): void {
   if (typeof window === 'undefined') return;
   try {
     const payload: PersistedMockSnapshot = {
-      version: 1,
+      version: 2,
       seq,
       store,
       savedAt: new Date().toISOString(),

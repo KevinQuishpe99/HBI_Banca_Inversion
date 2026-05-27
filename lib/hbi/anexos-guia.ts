@@ -11,7 +11,7 @@ export const GUIA_ANEXOS: Array<{
 }> = [
   {
     codigo: 'ANEXO_1_ADMINISTRATIVO',
-    titulo: 'Anexo 1 — Agente Administrativo',
+    titulo: 'Agente Administrativo (Anexo 1)',
     resumen:
       'HBI administra el crédito sindicado: desembolsos por hitos, reportes al comité de acreedores, comunicación con deudor y registro de condiciones precedentes.',
     responsabilidades: [
@@ -25,7 +25,7 @@ export const GUIA_ANEXOS: Array<{
   },
   {
     codigo: 'ANEXO_2_GARANTIAS',
-    titulo: 'Anexo 2 — Agente de Garantías',
+    titulo: 'Agente de Garantías (Anexo 2)',
     resumen:
       'Control de garantías reales y personales, pólizas, fiducias y liberaciones condicionadas al avance del proyecto y cumplimiento de ratios.',
     responsabilidades: [
@@ -39,7 +39,7 @@ export const GUIA_ANEXOS: Array<{
   },
   {
     codigo: 'ANEXO_3_CALCULO',
-    titulo: 'Anexo 3 — Agente de Cálculo',
+    titulo: 'Agente de Cálculo (Anexo 3)',
     resumen:
       'Validación de cronogramas, tasas (SOFR, IBR, etc.), cuotas, comisiones y escenarios de prepago o recálculo solicitados por acreedores.',
     responsabilidades: [

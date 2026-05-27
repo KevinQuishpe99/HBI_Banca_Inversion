@@ -74,7 +74,7 @@ export function DashboardEjecutivoHbi() {
             href="/pipeline"
             className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-800 hover:bg-blue-50"
           >
-            Ver pipeline
+            Ver Kanban
           </Link>
           <Link
             href="/cartera"

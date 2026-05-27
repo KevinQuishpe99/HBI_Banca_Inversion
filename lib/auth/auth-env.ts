@@ -1,14 +1,18 @@
 /**
  * Secret y URL de NextAuth quemados — cero variables de entorno obligatorias.
- * VERCEL_URL la inyecta la plataforma Vercel automáticamente (no es configuración manual).
+ * NEXTAUTH_* se inyectan en build vía next.config.ts (no mutar process.env en runtime).
+ * VERCEL_URL la inyecta Vercel automáticamente en producción.
  */
 export const DEMO_AUTH_SECRET = 'hbi-demo-auth-secret-comware-2026';
 
 export function resolveAuthSecret(): string {
-  return DEMO_AUTH_SECRET;
+  return process.env.NEXTAUTH_SECRET?.trim() || DEMO_AUTH_SECRET;
 }
 
 export function resolveAuthUrl(): string {
+  const fromEnv = process.env.NEXTAUTH_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+
   const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (productionHost) {
     return productionHost.startsWith('http')
@@ -21,10 +25,3 @@ export function resolveAuthUrl(): string {
 
   return 'http://localhost:3000';
 }
-
-export function ensureAuthEnv(): void {
-  process.env.NEXTAUTH_SECRET = DEMO_AUTH_SECRET;
-  process.env.NEXTAUTH_URL = resolveAuthUrl();
-}
-
-ensureAuthEnv();

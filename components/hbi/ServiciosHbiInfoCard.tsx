@@ -2,25 +2,26 @@
 
 import { FileText, Shield, Calculator } from 'lucide-react';
 import { usaDatosQuemadosHbi } from '@/lib/hbi/mock-config';
+import { AGENTE_FINANCIACION_HBI } from '@/types/hbi/operacion.types';
 
 const SERVICIOS = [
   {
     icon: FileText,
-    titulo: 'Anexo 1 — Agente administrativo',
+    titulo: 'Agente Administrativo (Anexo 1)',
     texto:
-      'Gestión contractual, desembolsos por fases del proyecto, reportes al sindicato y comunicación con deudor y acreedores.',
+      'Gestión contractual, solicitudes de desembolso por fase, reportes al sindicado y comunicación con deudor y acreedores.',
   },
   {
     icon: Shield,
-    titulo: 'Anexo 2 — Garantías',
+    titulo: 'Agente de Garantías (Anexo 2)',
     texto:
-      'Seguimiento de garantías reales/personales, certificaciones de cumplimiento y liberación condicionada a hitos.',
+      'Seguimiento de garantías reales y personales, certificaciones de cumplimiento y liberación condicionada a hitos del proyecto.',
   },
   {
     icon: Calculator,
-    titulo: 'Anexo 3 — Cálculo',
+    titulo: 'Agente de Cálculo (Anexo 3)',
     texto:
-      'Cronogramas, tasas, cuotas y validación de cálculos financieros del crédito sindicado.',
+      'Cronogramas, tasas, certificación de saldos y validación de cálculos financieros del crédito sindicado.',
   },
 ] as const;
 
@@ -29,28 +30,13 @@ export function ServiciosHbiInfoCard() {
 
   return (
     <section className="rounded-xl border border-[var(--color-brand-border)] bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-900">
-        Rol de HBI como agente de financiación
-      </h2>
+      <h2 className="text-lg font-semibold text-slate-900">{AGENTE_FINANCIACION_HBI}</h2>
       <p className="mt-2 text-sm text-slate-600">
-        En créditos sindicados, HBI actúa como intermediario: el deudor recibe recursos, los
-        acreedores aportan capital y HBI administra contratos, comunicaciones, expediente y
-        desembolsos auditados por fase (especialmente en proyectos de gran envergadura).
+        HBI actúa como intermediario en créditos sindicados: el deudor recibe recursos, los acreedores
+        aportan capital y HBI administra el crédito mediante hasta tres servicios (Anexos 1, 2 y 3).
+        Cada desembolso del proyecto exige evidencias documentales de los anexos contratados antes de
+        habilitar el siguiente giro.
       </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <article className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-accent)]/30 p-3">
-          <p className="text-lg font-bold text-[var(--color-brand-primary)]">+20 años</p>
-          <p className="text-xs text-slate-600">experiencia en el mercado latinoamericano</p>
-        </article>
-        <article className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-accent)]/30 p-3">
-          <p className="text-lg font-bold text-[var(--color-brand-primary)]">US$ 1,200M+</p>
-          <p className="text-xs text-slate-600">cierres financieros exitosos reportados por HBI</p>
-        </article>
-        <article className="rounded-lg border border-[var(--color-brand-border)] bg-[var(--color-brand-accent)]/30 p-3">
-          <p className="text-lg font-bold text-[var(--color-brand-primary)]">5 países</p>
-          <p className="text-xs text-slate-600">alianzas estratégicas en Latam + EE.UU.</p>
-        </article>
-      </div>
       <ul className="mt-4 grid gap-4 sm:grid-cols-3">
         {SERVICIOS.map((s) => {
           const Icon = s.icon;
@@ -66,9 +52,6 @@ export function ServiciosHbiInfoCard() {
           );
         })}
       </ul>
-      <p className="mt-4 text-xs text-slate-500">
-        Referencia de contenido institucional: hbi.com.co
-      </p>
     </section>
   );
 }

@@ -23,6 +23,51 @@ export type OrigenCorreoHbi = 'AGENTE_HBI' | 'DEUDOR' | 'ACREEDOR' | 'OTRO';
 
 export type PrioridadCorreoHbi = 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE';
 
+export type ViabilidadProyectoHbi =
+  | 'EN_EVALUACION'
+  | 'VIABLE'
+  | 'CONDICIONADO'
+  | 'NO_VIABLE';
+
+/** Registro de apertura/cierre por fase del workflow. */
+export interface RegistroFaseHbi {
+  fase: FaseWorkflowHbi;
+  titulo: string;
+  abiertaEn: string;
+  cerradaEn?: string;
+  abiertaPor?: string;
+  notas?: string;
+}
+
+export interface AsesorFinanciacionHbi {
+  nombre: string;
+  entidad?: string;
+  email?: string;
+  telefono?: string;
+}
+
+/** Partes del crédito sindicado y quién estructuró/otorgó. */
+export interface PartesCreditoHbi {
+  /** Líder del sindicato o banco agente acreedor */
+  otorgadoPor?: string;
+  fechaAperturaCredito?: string;
+  asesor?: AsesorFinanciacionHbi;
+}
+
+/** Ficha de proyecto y responsable — captura en Fase 2 (correos / viabilidad). */
+export interface InfoProyectoHbi {
+  responsableNombre: string;
+  responsableCargo?: string;
+  responsableEmail?: string;
+  responsableTelefono?: string;
+  sector?: string;
+  ubicacion?: string;
+  descripcionProyecto?: string;
+  viabilidad: ViabilidadProyectoHbi;
+  notasViabilidad?: string;
+  actualizadoEn?: string;
+}
+
 export type EstadoActividadHbi =
   | 'PENDIENTE'
   | 'EN_PROGRESO'
@@ -194,7 +239,11 @@ export const FASES_WORKFLOW: Array<{
 ];
 
 export const TIPOS_SERVICIO_LABEL: Record<TipoServicioHbi, string> = {
-  ANEXO_1_ADMINISTRATIVO: 'Anexo 1 — Agente Administrativo',
-  ANEXO_2_GARANTIAS: 'Anexo 2 — Agente de Garantías',
-  ANEXO_3_CALCULO: 'Anexo 3 — Agente de Cálculo',
+  ANEXO_1_ADMINISTRATIVO: 'Agente Administrativo (Anexo 1)',
+  ANEXO_2_GARANTIAS: 'Agente de Garantías (Anexo 2)',
+  ANEXO_3_CALCULO: 'Agente de Cálculo (Anexo 3)',
 };
+
+/** Rol de HBI como agente de financiación en créditos sindicados. */
+export const AGENTE_FINANCIACION_HBI =
+  'Agente de Financiación — créditos sindicados (Anexos 1, 2 y 3)';

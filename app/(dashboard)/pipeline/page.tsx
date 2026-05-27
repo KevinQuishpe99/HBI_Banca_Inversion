@@ -11,11 +11,11 @@ export default function PipelinePage() {
       <MockModeBanner />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-700">HBI · Deal pipeline</p>
-          <h1 className="text-2xl font-bold text-slate-900">Pipeline comercial</h1>
+          <p className="text-sm font-medium text-blue-700">HBI · Operaciones sindicadas</p>
+          <h1 className="text-2xl font-bold text-slate-900">Kanban</h1>
           <p className="mt-1 max-w-2xl text-slate-600">
-            Vista Kanban por fase del workflow sindicado — desde ingreso contractual hasta seguimiento
-            post-desembolso.
+            Tablero por fase del workflow — desde contratos y correos hasta expediente 360 y seguimiento
+            operativo.
           </p>
         </div>
         <Link

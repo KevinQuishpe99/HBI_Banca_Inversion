@@ -101,9 +101,7 @@ import {
   isMicrosoftOAuthConfigured,
 } from '@/lib/auth/microsoft-auth';
 import { demoUserToSession, findDemoUser, isDemoAuthEnabled } from '@/lib/auth/demo-users';
-import { ensureAuthEnv, resolveAuthSecret } from '@/lib/auth/auth-env';
-
-ensureAuthEnv();
+import { resolveAuthSecret } from '@/lib/auth/auth-env';
 
 const LEGACY_AREA_ROLES = ['COMERCIAL', 'TECNICA', 'FINANCIERA', 'LEGAL', 'DIRECTOR_GENERAL'] as const;
 

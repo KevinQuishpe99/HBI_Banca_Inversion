@@ -1,4 +1,3 @@
-import '@/lib/auth/auth-env';
 import { withAuth, type NextRequestWithAuth } from 'next-auth/middleware';
 import type { NextFetchEvent, NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
